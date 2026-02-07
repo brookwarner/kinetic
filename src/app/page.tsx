@@ -212,16 +212,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Demo CTA */}
-        <div className="animate-fade-in-up animation-delay-800 text-center">
-          <Link
-            href="/demo"
-            className="inline-flex items-center gap-2 rounded-full border-2 border-[hsl(var(--kinetic-wine))]/20 bg-white/80 px-6 py-3 font-medium text-[hsl(var(--kinetic-wine))] backdrop-blur-sm transition-all hover:border-[hsl(var(--kinetic-wine))]/40 hover:bg-white"
-          >
-            <span>View Guided Demo</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
       </div>
     </div>
   );
