@@ -298,6 +298,58 @@ export function generatePatientProfiles(count: number): PatientProfile[] {
   return patients;
 }
 
+export interface TransitionScenario {
+  id: string;
+  originPhysioId: string;
+  destinationPhysioId: string;
+  transitionType: "gp-referral" | "patient-booking" | "physio-handoff";
+  /** The transition status to seed — determines how much of the flow is pre-populated */
+  targetStatus:
+    | "consent-pending"
+    | "review-pending"
+    | "released";
+  description: string;
+}
+
+export const transitionScenarios: TransitionScenario[] = [
+  {
+    id: "transition-sarah-maya",
+    originPhysioId: "physio-sarah",
+    destinationPhysioId: "physio-maya",
+    transitionType: "physio-handoff",
+    targetStatus: "released",
+    description:
+      "Complete happy path — Sarah handed off to Maya, summary reviewed and released",
+  },
+  {
+    id: "transition-james-sarah",
+    originPhysioId: "physio-james",
+    destinationPhysioId: "physio-sarah",
+    transitionType: "gp-referral",
+    targetStatus: "review-pending",
+    description:
+      "Summary generated and awaiting review by James",
+  },
+  {
+    id: "transition-tom-james",
+    originPhysioId: "physio-tom",
+    destinationPhysioId: "physio-james",
+    transitionType: "physio-handoff",
+    targetStatus: "consent-pending",
+    description:
+      "Patient hasn't consented yet — Tom initiated handoff to James",
+  },
+  {
+    id: "transition-maya-tom",
+    originPhysioId: "physio-maya",
+    destinationPhysioId: "physio-tom",
+    transitionType: "patient-booking",
+    targetStatus: "released",
+    description:
+      "Patient-initiated transition — Maya to Tom, summary released",
+  },
+];
+
 export interface EpisodeTemplate {
   condition: string;
   isGpReferred: boolean;

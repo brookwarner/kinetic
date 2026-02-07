@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { db } from "./index";
 import {
   physiotherapists,
@@ -9,20 +10,28 @@ import {
   computedSignals,
   simulatedEligibility,
   gpPatientNotes,
+  transitionEvents,
+  continuityConsents,
+  continuitySummaries,
 } from "./schema";
 import {
   physioScenarios,
   gpScenarios,
   gpPatientNoteScenarios,
+  transitionScenarios,
   generatePatientProfiles,
   generateEpisodeTemplates,
 } from "./seed-scenarios";
+import { generateSummary } from "../lib/continuity/generate-summary";
 
 async function seed() {
   console.log("🌱 Starting seed...");
 
   // Clear existing data (order matters for foreign keys)
   console.log("Clearing existing data...");
+  await db.delete(continuitySummaries);
+  await db.delete(continuityConsents);
+  await db.delete(transitionEvents);
   await db.delete(simulatedEligibility);
   await db.delete(computedSignals);
   await db.delete(consents);
@@ -188,6 +197,112 @@ async function seed() {
   console.log(`✓ Created ${totalEpisodes} episodes`);
   console.log(`✓ Created ${totalVisits} visits`);
   console.log(`✓ Created ${totalConsents} consents`);
+
+  // Create transition scenarios
+  console.log("\nCreating transition scenarios...");
+  let totalTransitions = 0;
+
+  for (const scenario of transitionScenarios) {
+    // Find a suitable origin episode (first GP-referred discharged episode for origin physio)
+    const originEpisodeId = `episode-${scenario.originPhysioId}-2`;
+    const originEpisodeResult = await db.query.episodes.findFirst({
+      where: (ep, { eq }) => eq(ep.id, originEpisodeId),
+    });
+
+    if (!originEpisodeResult) {
+      console.log(`  Skipping ${scenario.id} — origin episode not found`);
+      continue;
+    }
+
+    const patientId = originEpisodeResult.patientId;
+    const now = new Date();
+    const initiatedAt = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 1 week ago
+
+    // Create transition event
+    await db.insert(transitionEvents).values({
+      id: scenario.id,
+      patientId,
+      originEpisodeId,
+      originPhysioId: scenario.originPhysioId,
+      destinationPhysioId: scenario.destinationPhysioId,
+      referringGpId: scenario.transitionType === "gp-referral" ? "gp-alice" : null,
+      transitionType: scenario.transitionType,
+      status: scenario.targetStatus,
+      initiatedAt,
+      completedAt: scenario.targetStatus === "released" ? now : null,
+    });
+
+    // Update origin episode status to transferred
+    await db
+      .update(episodes)
+      .set({ status: "transferred" })
+      .where(eq(episodes.id, originEpisodeId));
+
+    // For scenarios beyond consent-pending, create consent + summary
+    if (scenario.targetStatus !== "consent-pending") {
+      // Create continuity consent
+      const consentId = `cc-${scenario.id}`;
+      await db.insert(continuityConsents).values({
+        id: consentId,
+        patientId,
+        transitionEventId: scenario.id,
+        originEpisodeId,
+        status: "granted",
+        scope: "continuity-summary-for-transition",
+        grantedAt: new Date(initiatedAt.getTime() + 1 * 24 * 60 * 60 * 1000),
+      });
+
+      // Fetch visits for summary generation
+      const episodeVisits = await db.query.visits.findMany({
+        where: (v, { eq }) => eq(v.episodeId, originEpisodeId),
+        orderBy: (v, { asc }) => [asc(v.visitNumber)],
+      });
+
+      const patient = await db.query.patients.findFirst({
+        where: (p, { eq }) => eq(p.id, patientId),
+      });
+
+      // Generate and store summary
+      const summaryContent = generateSummary({
+        episode: originEpisodeResult,
+        visits: episodeVisits,
+        patientName: patient?.name ?? "Unknown",
+      });
+
+      const summaryId = `summary-${scenario.id}`;
+      const isReleased = scenario.targetStatus === "released";
+      const generatedAt = new Date(initiatedAt.getTime() + 1 * 24 * 60 * 60 * 1000);
+
+      await db.insert(continuitySummaries).values({
+        id: summaryId,
+        transitionEventId: scenario.id,
+        originEpisodeId,
+        originPhysioId: scenario.originPhysioId,
+        patientId,
+        conditionFraming: summaryContent.conditionFraming,
+        diagnosisHypothesis: summaryContent.diagnosisHypothesis,
+        interventionsAttempted: summaryContent.interventionsAttempted,
+        responseProfile: summaryContent.responseProfile,
+        currentStatus: summaryContent.currentStatus,
+        openConsiderations: summaryContent.openConsiderations,
+        physioAnnotations: isReleased
+          ? "Transferring care as patient is relocating. Good progress overall — continue current approach."
+          : null,
+        status: isReleased ? "released" : "pending-review",
+        generatedAt,
+        reviewedAt: isReleased
+          ? new Date(generatedAt.getTime() + 2 * 24 * 60 * 60 * 1000)
+          : null,
+        releasedAt: isReleased
+          ? new Date(generatedAt.getTime() + 3 * 24 * 60 * 60 * 1000)
+          : null,
+      });
+    }
+
+    totalTransitions++;
+    console.log(`  ✓ ${scenario.description}`);
+  }
+  console.log(`✓ Created ${totalTransitions} transition scenarios`);
 
   // Compute signals for opted-in physios
   console.log("\nComputing signals for opted-in physiotherapists...");
