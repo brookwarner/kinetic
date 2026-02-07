@@ -7,7 +7,7 @@ import {
   consents,
   gps,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import {
   Card,
@@ -22,6 +22,7 @@ import Link from "next/link";
 import { UserCheck, UserX } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { EpisodeTimeline } from "@/components/physio/episode-timeline";
+import { InitiateHandoff } from "@/components/physio/initiate-handoff";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,16 @@ export default async function EpisodeDetailPage({ params }: Props) {
       )
     );
 
+  // Fetch available physios for handoff (excluding current physio)
+  const availablePhysios = await db
+    .select({
+      id: physiotherapists.id,
+      name: physiotherapists.name,
+      clinicName: physiotherapists.clinicName,
+    })
+    .from(physiotherapists)
+    .where(ne(physiotherapists.id, physioId));
+
   return (
     <div className="px-6 py-8">
       {/* Episode Header */}
@@ -98,9 +109,18 @@ export default async function EpisodeDetailPage({ params }: Props) {
               )}
             </div>
           </div>
-          <Badge variant={episode.status === "active" ? "default" : "outline"}>
-            {episode.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {episode.status === "active" && (
+              <InitiateHandoff
+                episodeId={episodeId}
+                physioId={physioId}
+                availablePhysios={availablePhysios}
+              />
+            )}
+            <Badge variant={episode.status === "active" ? "default" : "outline"}>
+              {episode.status}
+            </Badge>
+          </div>
         </div>
       </div>
 
