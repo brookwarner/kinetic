@@ -37,12 +37,6 @@ export default function RootLayout({
               <div className="flex items-center gap-6">
                 <GlobalResetButton />
                 <Link
-                  href="/demo"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--kinetic-wine))]"
-                >
-                  Demo
-                </Link>
-                <Link
                   href="/"
                   className="rounded-lg px-3 py-1.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--kinetic-wine))]"
                 >
