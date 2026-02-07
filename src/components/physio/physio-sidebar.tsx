@@ -7,6 +7,7 @@ import {
   Users,
   Activity,
   Send,
+  ArrowRightLeft,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,11 @@ const navItems = [
     label: "Referrals",
     href: (id: string) => `/physio/${id}/eligibility`,
     icon: Send,
+  },
+  {
+    label: "Handoffs",
+    href: (id: string) => `/physio/${id}/handoffs`,
+    icon: ArrowRightLeft,
   },
   {
     label: "Settings",
