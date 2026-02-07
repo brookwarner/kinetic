@@ -162,12 +162,11 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
         setSearchProgress(100);
         setSearchStage("Search complete!");
 
-        // Wait for data then transition
-        searchPromise.then(() => {
-          setTimeout(() => {
-            setCurrentStep("results");
-          }, 600);
-        });
+        // Always transition after a brief delay, regardless of API status
+        // The results page will show loading state if data isn't ready
+        setTimeout(() => {
+          setCurrentStep("results");
+        }, 600);
       }
     }, INTERVAL_MS);
   }, [gpId, selectedPatient]);
