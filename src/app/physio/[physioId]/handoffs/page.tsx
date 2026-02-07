@@ -341,18 +341,34 @@ export default async function HandoffsPage({ params }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                      {t.summaryId && t.summaryStatus === "released" && (
+                      {t.summaryId && (
                         <Link
                           href={`/physio/${physioId}/handoffs/${t.summaryId}`}
                         >
                           <Button
                             size="sm"
-                            className="bg-teal-600 text-white hover:bg-teal-700"
+                            className={
+                              t.summaryStatus === "released"
+                                ? "bg-teal-600 text-white hover:bg-teal-700"
+                                : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }
+                            variant={
+                              t.summaryStatus === "released"
+                                ? "default"
+                                : "outline"
+                            }
                           >
                             <Eye className="mr-2 h-3.5 w-3.5" />
-                            View Summary
+                            {t.summaryStatus === "released"
+                              ? "View Summary"
+                              : "View Draft"}
                           </Button>
                         </Link>
+                      )}
+                      {t.status === "consent-pending" && (
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                          Awaiting patient consent
+                        </span>
                       )}
                     </div>
                   </div>

@@ -56,11 +56,6 @@ export default async function SummaryViewPage({ params }: Props) {
     redirect(`/physio/${physioId}/handoffs`);
   }
 
-  // Receiving physio can only see released summaries
-  if (isDestinationPhysio && summary.status !== "released") {
-    redirect(`/physio/${physioId}/handoffs`);
-  }
-
   // Fetch patient name
   const [patient] = await db
     .select()
@@ -91,6 +86,22 @@ export default async function SummaryViewPage({ params }: Props) {
     .select()
     .from(episodes)
     .where(eq(episodes.id, summary.originEpisodeId));
+
+  const summaryStatusLabel: Record<string, string> = {
+    draft: "Draft",
+    "pending-review": "Pending Review",
+    approved: "Approved",
+    released: "Released",
+    revoked: "Revoked",
+  };
+
+  const summaryStatusClassName: Record<string, string> = {
+    draft: "border-slate-200 bg-slate-50 text-slate-700",
+    "pending-review": "border-purple-200 bg-purple-50 text-purple-700",
+    approved: "border-teal-200 bg-teal-50 text-teal-700",
+    released: "border-green-200 bg-green-50 text-green-700",
+    revoked: "border-red-200 bg-red-50 text-red-700",
+  };
 
   return (
     <div className="px-6 py-8">
@@ -130,9 +141,12 @@ export default async function SummaryViewPage({ params }: Props) {
           </div>
           <Badge
             variant="outline"
-            className="border-green-200 bg-green-50 text-green-700"
+            className={
+              summaryStatusClassName[summary.status] ??
+              "border-slate-200 bg-slate-50 text-slate-700"
+            }
           >
-            Released
+            {summaryStatusLabel[summary.status] ?? summary.status}
           </Badge>
         </div>
       </div>
@@ -148,6 +162,11 @@ export default async function SummaryViewPage({ params }: Props) {
               It contains structured clinical data from the patient's prior
               episode to support continuity of care.
             </p>
+            {summary.status !== "released" && (
+              <p className="mt-2 text-xs text-teal-700">
+                Draft status: this summary has not been released yet.
+              </p>
+            )}
           </div>
         </div>
       )}
