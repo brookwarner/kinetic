@@ -4,7 +4,7 @@
 
 A Next.js application demonstrating a quality-based physiotherapist referral routing system. The platform preserves provider autonomy while building transparent referral networks between GPs and physiotherapists based on evidence-driven quality signals.
 
-**Status**: MVP Complete (7 phases implemented)
+**Status**: MVP Complete (9 phases implemented - includes care continuity and GP referral flows)
 
 ## Tech Stack
 
@@ -18,16 +18,20 @@ A Next.js application demonstrating a quality-based physiotherapist referral rou
 
 ## Core Architecture
 
-### Database Schema (8 tables)
+### Database Schema (12 tables)
 
 1. **physiotherapists** - Provider profiles, opt-in status, preview mode flags (`optedIn`, `previewMode`, `optedInAt`, `optedOutAt`)
 2. **patients** - Patient demographics
 3. **gps** - GP practice information with region codes
-4. **episodes** - Treatment episodes linking patients to physios
+4. **episodes** - Treatment episodes linking patients to physios (`priorPhysioEpisodeId` tracks continuity chain, `status` includes "transferred")
 5. **visits** - Individual treatment visits with pain/function scores
 6. **consents** - Episode-scoped patient data sharing permissions
 7. **computed_signals** - Quality signals (outcome, clinical decision, patient preference)
 8. **simulated_eligibility** - Future referral set eligibility data
+9. **gp_patient_notes** - GP clinical notes per patient for referral context
+10. **transition_events** - Care transition tracking with state machine (initiated → consent-pending → summary-pending → review-pending → released/declined/expired)
+11. **continuity_consents** - Patient consent for care handoff summaries (separate domain from episode consents)
+12. **continuity_summaries** - Structured clinical handoff summaries with 6 sections (condition framing, diagnosis hypothesis, interventions, response profile, current status, open considerations), physio review/annotation support
 
 ### Key Design Patterns
 
@@ -39,15 +43,20 @@ A Next.js application demonstrating a quality-based physiotherapist referral rou
 
 **Sets Not Rankings**: GPs see eligible physiotherapists in grids with confidence indicators (dots), never ranked lists or numeric scores.
 
+**Care Continuity Summaries**: Structured clinical handoff summaries generated from episode data using deterministic templates (no AI, no raw note passthrough). Follows state machine: patient consent → summary generation → physio review/annotation → release to destination provider. Prevents comparative statements or performance evaluation language.
+
 ## Application Structure
 
 ### Routes
 
 - `/` - Landing page with role selector (physio or GP)
-- `/physio/[physioId]/*` - Physiotherapist dashboard, episodes, signals, eligibility
+- `/physio/[physioId]/*` - Physiotherapist dashboard, episodes, signals, eligibility, handoffs
 - `/physio/[physioId]/opt-in` - Wizard-based opt-in flow (not opted in) or settings management (opted in)
-- `/gp/[gpId]/*` - GP dashboard and referral set views
-- `/patient/[patientId]/consent` - Patient consent management
+- `/physio/[physioId]/handoffs` - Care transition management (outgoing/incoming tabs)
+- `/physio/[physioId]/handoffs/[summaryId]/review` - Review and annotate continuity summary before release
+- `/gp/[gpId]/*` - GP dashboard and referral views
+- `/gp/[gpId]/referral/new` - 3-step referral wizard (patient selection → physio search → confirmation)
+- `/patient/[patientId]/consent` - Patient consent management (episode or continuity consent based on query params)
 - `/demo` - Guided demo walkthrough
 
 ### Layouts
@@ -64,21 +73,52 @@ A Next.js application demonstrating a quality-based physiotherapist referral rou
 - Server component that validates physio existence using Drizzle ORM query
 - No preview mode banner rendered in layout (preview mode UI integrated into PageHeader component)
 
+**GP Layout** (`/src/app/gp/[gpId]/layout.tsx`):
+- Minimal layout with left sidebar navigation (`GpSidebar`) using sage/teal color scheme
+- Main content area with left margin for fixed sidebar
+- Server component that validates GP existence
+- Recent patient list in sidebar with notes indicator
+
 ### API Routes
 
+**Physio APIs:**
 - `/api/physio/[physioId]/consented-episodes` - GET anonymized list of consented episodes
 - `/api/physio/[physioId]/signals` - GET formatted signal data
 - `/api/physio/[physioId]/eligibility` - GET referral eligibility data
+- `/api/physio/[physioId]/transitions` - GET enriched transition events (outgoing/incoming)
+- `/api/physio/[physioId]/summaries/[summaryId]` - GET continuity summary with access control (origin physio: full access; destination physio: only if released)
+
+**GP APIs:**
+- `/api/gp/[gpId]/patients` - GET patients in GP's region with clinical notes
+- `/api/gp/[gpId]/find-physios` - POST search for eligible physiotherapists with signal data, region matching, capacity sorting
 
 ### Server Actions
 
-- `/src/actions/consent.ts` - Grant/revoke episode consent
-- `/src/actions/opt-in.ts` - Manage physio opt-in/out status and preview mode transitions
-  - `toggleOptIn(physioId, optIn)` - Opts in/out, automatically enables preview mode when opting in. Returns `{success: true}` without redirecting. When opting out, revalidates opt-in and dashboard pages; when opting in, does NOT revalidate to prevent interrupting wizard animation flow.
-  - `disablePreviewMode(physioId)` - Exits preview mode to go live in GP referral sets. Revalidates dashboard and signals pages. Returns `{success: true}` or error object.
-- `/src/actions/signals.ts` - Recompute quality signals
-- `/src/actions/dev-utils.ts` - Development-only utilities (not available in production)
-  - `resetAllPhysiosOptIn()` - Resets all physiotherapists to not opted in state for testing opt-in flow
+**Consent Actions** (`/src/actions/consent.ts`):
+- `grantConsent(patientId, episodeId, physioId)` - Grant episode-scoped consent
+- `revokeConsent(consentId)` - Revoke episode consent
+
+**Opt-In Actions** (`/src/actions/opt-in.ts`):
+- `toggleOptIn(physioId, optIn)` - Opts in/out, automatically enables preview mode when opting in. Returns `{success: true}` without redirecting. When opting out, revalidates opt-in and dashboard pages; when opting in, does NOT revalidate to prevent interrupting wizard animation flow.
+- `disablePreviewMode(physioId)` - Exits preview mode to go live in GP referral sets. Revalidates dashboard and signals pages. Returns `{success: true}` or error object.
+
+**Transition Actions** (`/src/actions/transitions.ts`):
+- `initiateTransition({originEpisodeId, transitionType, destinationPhysioId?, referringGpId?})` - Create transition event, update episode status to "transferred"
+- `grantContinuityConsent(patientId, transitionEventId, originEpisodeId)` - Patient grants consent, generates summary using `generateSummary()`, advances transition to review-pending
+- `revokeContinuityConsent(consentId)` - Revoke consent, revoke summary, update transition to declined
+
+**Summary Review Actions** (`/src/actions/summary-review.ts`):
+- `approveSummary(summaryId, physioAnnotations?)` - Approve summary with optional annotations
+- `releaseSummary(summaryId)` - Release approved summary to destination physio, update transition to released
+
+**GP Referral Actions** (`/src/actions/gp-referrals.ts`):
+- `createGpReferral({gpId, patientId, destinationPhysioId, condition, originEpisodeId?})` - Create new episode with `isGpReferred=true`, create transition event if prior episode exists
+
+**Signal Actions** (`/src/actions/signals.ts`):
+- `recomputeSignals(physioId)` - Recompute quality signals
+
+**Dev Utilities** (`/src/actions/dev-utils.ts`):
+- `resetAllPhysiosOptIn()` - Development-only: Resets all physiotherapists to not opted in state
 
 ### Signal Computation Engine
 
@@ -106,6 +146,29 @@ Computes referral set eligibility based on:
 - Region matching (GP region vs physio region)
 - Signal strength across all three categories
 - Episode count threshold (minimum 8 consented episodes)
+
+### Continuity Summary Engine
+
+Located in `/src/lib/continuity/`:
+
+**Pure Function Pipeline** (`generate-summary.ts`):
+- Transforms episode + visits data into structured handoff document
+- No AI generation, no raw note passthrough, no comparative statements
+- Deterministic templates enforce consistent clinical framing
+- 6-section structure: condition framing, diagnosis hypothesis, interventions attempted, response profile (responded/did not respond lists), current status, open considerations
+
+**Type System** (`types.ts`):
+- `SummaryInput`, `SummaryContent`, `ResponseProfile` interfaces
+- State machine definitions for `TransitionStatus` and `SummaryStatus`
+- Validation functions: `isValidTransition()`, `isValidSummaryTransition()`
+
+**Template Functions** (`summary-templates.ts`):
+- `formatConditionFraming()` - Patient presentation and symptom trajectory
+- `formatDiagnosisHypothesis()` - Working diagnosis based on response patterns
+- `extractInterventions()` - Treatment approaches attempted
+- `analyzeResponses()` - Categorize interventions by response
+- `formatCurrentStatus()` - Current functional state
+- `identifyOpenConsiderations()` - Unresolved clinical questions
 
 ## Environment Configuration
 
@@ -180,6 +243,22 @@ This replaces the previous approach of a sticky top header with separate preview
 - Stats grid (total episodes, consent rate, signal status, eligibility)
 - Quick links to episodes, signals, and eligibility pages
 
+**Handoffs Page** (`/physio/[physioId]/handoffs`):
+- PageHeader with transition count summary (outgoing/incoming)
+- Tab switcher for outgoing vs incoming transitions
+- Transition cards with status badges (awaiting consent, generating summary, pending review, released, declined, expired)
+- Transition type badges (GP referral, patient booking, physio handoff)
+- Color-coded status indicators using amber (pending), purple (review), green (released), red (declined)
+- Links to summary review page for review-pending items
+- Empty state with Inbox icon when no transitions exist
+
+**Summary Review Page** (`/physio/[physioId]/handoffs/[summaryId]/review`):
+- Full continuity summary display with 6 sections in card layout
+- Physio annotation textarea for adding clinical context
+- Approve + Release buttons (teal theme)
+- Access control: origin physio only (destination sees released summaries)
+- Summary status badges and metadata display
+
 #### Opt-In Wizard Flow
 
 When a physiotherapist is not opted in, visiting `/physio/[physioId]/opt-in` shows a 4-step wizard (`OptInWizard`):
@@ -220,16 +299,66 @@ Preview mode status is integrated into the `PageHeader` component (not a separat
 
 ### For GPs
 
-- Practice dashboard
-- Referral set grid (non-ranked) with confidence dots
-- Region-based filtering
-- Quality indicator visualization
+**Dashboard** (`/gp/[gpId]/page`):
+- Sage/teal themed design distinct from physio wine theme
+- Stats grid with total patients and referrals sent
+- Quick actions: "New Referral" CTA button
+- Recent patients list with clinical notes
+- Success state messaging when referral completed
+
+**Referral Wizard** (`/gp/[gpId]/referral/new`):
+- 3-step client-side wizard (`NewReferralWizard`) with visual progress indicator showing completed/current/upcoming steps
+- **Step 1 - Patient Selection**:
+  - Two-column grid layout: patient list (left) + clinical notes (right)
+  - Loads patients via `/api/gp/${gpId}/patients` on mount with loading state
+  - `PatientCard` components for selection with visual checkmark indicator
+  - Editable `Textarea` for clinical notes (pre-filled from patient.notes)
+  - "Find Physiotherapists" button disabled until patient selected
+  - Cancel button returns to GP dashboard
+- **Step 2 - Searching**:
+  - 6-second time-based animated progress (100ms update intervals)
+  - Three phases with stage text updates:
+    - 0-2s (0-33%): "Reviewing patient history..."
+    - 2-4s (33-66%): "Analyzing local physiotherapists..."
+    - 4-6s (66-99%): "Matching quality to patient needs..."
+  - Progress bar with percentage display
+  - Stage indicator icons (FileText → Loader2 → CheckCircle2 as phases complete)
+  - Parallel async fetch to `/api/gp/${gpId}/find-physios` (POST with patientRegion)
+  - Transitions to results at 6s + 600ms delay regardless of API status
+- **Step 3 - Results**:
+  - Grid of `PhysioResultCard` components showing top eligible matches
+  - Cards display: name, clinic, region badge, capacity status, specialty tags, signal confidence dots
+  - "Begin Referral" button per card triggers confirmation dialog
+  - Confirmation dialog shows physio name and practice details
+  - On confirm: 1s simulated delay, navigate to dashboard with `?referral=success` query param
+- Demo mode: simulates referral creation without database write, uses client-side state only
+
+**Physio Result Cards** (`PhysioResultCard` component):
+- Region indicator badge with visual distinction for same-region matches
+- Capacity status badges (available/limited/waitlist) with color coding
+- Signal confidence dots (3 dots: outcome, clinical, patient preference) using `ConfidenceIndicator`
+- Specialty tags displayed as chips
+- "Begin Referral" CTA button with sage theme (`.btn-gp`)
+- Used in referral wizard step 3 results display
+
+**Patient Cards** (`PatientCard` component):
+- Name, date of birth, region display
+- "Has notes" indicator badge when patient.notes exists
+- Selectable card UI with click handler
+- Visual selected state with checkmark indicator and border highlighting
+- Used in referral wizard step 1
 
 ### For Patients
 
-- Episode-scoped consent form
-- Grant/revoke consent actions
-- Transparent data sharing scope explanation
+**Consent Page** (`/patient/[patientId]/consent`):
+- Dual-mode based on query parameters:
+  - `?episode=X` - Episode-scoped consent form for quality signals (`ConsentForm`)
+  - `?transition=X` - Care transition consent for continuity summary (`ContinuityConsentForm`)
+- Episode consent scope: anonymized visit data for quality signal computation
+- Continuity consent scope: structured clinical summary for care handoff
+- Grant/revoke actions with confirmation dialogs
+- Transparent data sharing scope explanations
+- Current consent status display with grant/revoke timestamps
 
 ## Code Patterns to Follow
 
@@ -260,9 +389,12 @@ Use shadcn/ui components from `/src/components/ui/`. Custom components follow Ta
 
 **Client-Side Interactivity Pattern**: Pages requiring state management (forms, animations, dialogs) use `"use client"` directive:
 - Opt-in wizard (`opt-in-wizard.tsx`) - 4-step flow with progress indicator, animated analysis (9-second time-based animation with 100ms intervals), URL parameter manipulation via `window.history.replaceState()`, parallel data fetching with `Promise.all()`, `AlertDialog` for go-live confirmation
+- Referral wizard (`new-referral-wizard.tsx`) - 3-step flow (patient → searching → results), state management with `useState` for step progression and form data, 6-second time-based search animation (100ms intervals, 3 phases: 0-2s patient review, 2-4s physio analysis, 4-6s quality matching), parallel physio search using async/await pattern with `searchPromise`, progress indicator with step completion tracking, confirmation dialog before referral creation with demo-mode simulation (1s delay, no database write)
 - Settings view (`settings-view.tsx`) - Status management with confirmation dialogs
 - Opt-in banner (`opt-in-banner.tsx`) - FAQ accordion and CTA interactions
 - Physio sidebar (`physio-sidebar.tsx`) - Client component using `usePathname()` for active link state with exact match logic for dashboard and prefix matching for other routes
+- GP sidebar (`gp-sidebar.tsx`) - Client component with sage/teal theme, recent patients list, "New Referral" CTA
+- Continuity consent form (`continuity-consent-form.tsx`) - Grant/revoke consent with confirmation dialogs
 - Global reset button (`global-reset-button.tsx`) - Development utility component that calls `resetAllPhysiosOptIn()` server action and reloads page, rendered in root layout navigation
 
 **Server Component Pattern**: Pages display data using React Server Components:
@@ -272,17 +404,22 @@ Use shadcn/ui components from `/src/components/ui/`. Custom components follow Ta
 **Icon Usage**: Lucide React icons used consistently across UI:
 - Eye icon for preview mode badge in PageHeader
 - Shield icon for all-or-nothing rule explanations
-- Users icon for patient consent sections
+- Users/User icon for patient consent sections and patient cards
 - TrendingUp/TrendingDown/Minus icons for signal quality indicators
 - Sparkles icon for opportunity/upsell messaging
 - CheckCircle2 icon for success states and benefits lists
 - FileText, Activity icons for dashboard stat cards and wizard steps
 - Inbox icon for empty states
 - ArrowRight icon for primary CTAs
-- ArrowLeft icon for wizard back navigation
+- ArrowLeft icon for wizard back navigation and page navigation
+- ArrowRightLeft icon for care transitions/handoffs
 - Rocket icon for go-live step
 - Loader2 icon for loading states and progress animations
-- LayoutDashboard, Send, Settings icons for sidebar navigation items
+- Search icon for physio search step in referral wizard
+- Send icon for referral/handoff features in sidebar navigation
+- Plus icon for "New Referral" CTA buttons
+- Clock icon for pending/in-progress states
+- LayoutDashboard, Settings icons for sidebar navigation items
 - RotateCcw icon for development reset functionality
 
 ## Color System
@@ -309,12 +446,26 @@ Custom color palette defined in `globals.css` using HSL variables:
   - Emerging patterns: amber-50, amber-600, amber-700
   - Needs attention: slate-50, slate-600, slate-700
 - Confidence dots use opacity variations on wine/green colors
-- Sidebar navigation uses wine-themed colors for active states:
+- **Physio sidebar** uses wine-themed colors:
   - Sidebar background: light wine tint `hsl(355 35% 98%)`
   - Active links: wine/0.1 background, wine text, 3px left border with negative margin compensation `-ml-[3px]`
   - Hover states: wine/0.05 background, wine text
   - Logo: white "K" on wine background in 8x8 rounded square
   - Border colors: wine/0.1 for visual separation
+- **GP sidebar and features** use sage/teal theme (distinct from physio wine):
+  - `--kinetic-sage: 160 25% 45%` - Primary GP color
+  - `--kinetic-sage-light: 160 20% 95%` - Light backgrounds
+  - `--kinetic-sage-dark: 160 30% 35%` - Darker accents
+  - `.btn-gp` class for GP-specific buttons (sage background)
+  - Sidebar background: `hsl(160 20% 98%)`
+  - Active links: sage/0.1 background, sage text, 3px left border
+- **Transition status badges**:
+  - Consent-pending: amber-50 bg, amber-700 text, amber-200 border
+  - Summary-pending: blue-50 bg, blue-700 text, blue-200 border
+  - Review-pending: purple-50 bg, purple-700 text, purple-200 border
+  - Released: green-50 bg, green-700 text, green-200 border
+  - Declined: red-50 bg, red-700 text, red-200 border
+  - Expired: slate-50 bg, slate-700 text, slate-200 border
 - Development utilities use orange-themed colors (orange-300 border, orange-700 text, orange-50 hover)
 
 ## Demo Scenarios
@@ -329,12 +480,35 @@ Custom color palette defined in `globals.css` using HSL variables:
 
 ## Important Files
 
-- `/src/db/schema.ts` - Complete database schema definition
+**Database & Schema:**
+- `/src/db/schema.ts` - Complete database schema definition (12 tables)
 - `/src/db/seed-scenarios.ts` - Deterministic seed data scenarios
+
+**Core Logic:**
 - `/src/lib/signals/compute.ts` - Signal orchestrator and computation logic
 - `/src/lib/eligibility/simulate.ts` - Eligibility computation rules
+- `/src/lib/continuity/generate-summary.ts` - Continuity summary generation engine
+- `/src/lib/continuity/summary-templates.ts` - Template functions for summary sections
+- `/src/lib/continuity/types.ts` - Type definitions and state machine validators
+
+**Server Actions:**
+- `/src/actions/transitions.ts` - Transition and continuity consent management
+- `/src/actions/summary-review.ts` - Summary approval and release
+- `/src/actions/gp-referrals.ts` - GP referral creation
+- `/src/actions/consent.ts` - Episode consent management
+- `/src/actions/opt-in.ts` - Physio opt-in/preview mode
+- `/src/actions/signals.ts` - Signal computation
+
+**Key Components:**
+- `/src/components/physio/page-header.tsx` - Unified physio page header
+- `/src/components/gp/gp-sidebar.tsx` - GP navigation with sage theme
+- `/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx` - 3-step referral flow
+- `/src/components/patient/continuity-consent-form.tsx` - Care transition consent
+
+**Documentation:**
 - `/README.md` - User-facing documentation
 - `/IMPLEMENTATION.md` - Technical implementation summary
+- `/CLAUDE.md` - This file (project instructions for AI coding assistants)
 
 ## Development Workflow
 
@@ -352,6 +526,7 @@ Local SQLite file (`local.db`) is used for development and gitignored.
 
 ## Risk Mitigation Features
 
+**Quality Signal Protections:**
 - No numeric scores exposed to prevent gaming
 - All-or-nothing sharing prevents cherry-picking
 - Preview mode builds trust through transparency with guided onboarding
@@ -359,6 +534,17 @@ Local SQLite file (`local.db`) is used for development and gitignored.
 - Revocable consent prevents lock-in
 - No rankings prevent unhealthy competition
 - Region-based filtering prevents inappropriate referrals
+
+**Continuity Summary Protections:**
+- Deterministic templates prevent narrative manipulation (no AI generation)
+- No raw clinical notes passthrough (sanitized by templates)
+- No comparative statements between providers
+- No performance evaluation language
+- Patient consent required for each transition
+- Physio review/annotation before release
+- Access control: destination physio only sees released summaries
+- State machine enforces proper workflow: consent → generation → review → release
+- Summary revocation possible at any stage before release
 
 ## Next Steps for Production
 
