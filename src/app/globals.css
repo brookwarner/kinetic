@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm Heidi-inspired palette */
+    --background: 30 25% 96%; /* Warm cream #F5F1E8 */
+    --foreground: 355 25% 25%; /* Deep burgundy for text */
+    --card: 0 0% 100%;
+    --card-foreground: 355 25% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 355 25% 25%;
+    --primary: 355 35% 45%; /* Burgundy #8B4049 */
+    --primary-foreground: 30 25% 96%;
+    --secondary: 25 45% 88%; /* Soft peach */
+    --secondary-foreground: 355 25% 25%;
+    --muted: 30 20% 92%;
+    --muted-foreground: 355 15% 45%;
+    --accent: 355 35% 45%;
+    --accent-foreground: 30 25% 96%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 355 35% 45%;
+    --radius: 1rem;
+
+    /* Custom kinetic colors */
+    --kinetic-wine: 355 35% 45%;
+    --kinetic-cream: 30 25% 96%;
+    --kinetic-peach: 25 45% 88%;
+    --kinetic-burgundy-dark: 355 40% 35%;
+
+    /* GP-specific colors (sage/teal family) */
+    --kinetic-sage: 160 25% 45%;
+    --kinetic-sage-light: 160 20% 95%;
+    --kinetic-sage-dark: 160 30% 35%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
+
+  .animation-delay-800 {
+    animation-delay: 800ms;
+  }
+}
+
+/* Organic background shapes */
+.organic-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.organic-bg::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 50%;
+  height: 80%;
+  background: linear-gradient(135deg, hsl(var(--kinetic-wine) / 0.08) 0%, hsl(var(--kinetic-peach) / 0.12) 100%);
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  animation: float 20s ease-in-out infinite;
+  z-index: 0;
+}
+
+.organic-bg::after {
+  content: '';
+  position: absolute;
+  bottom: -10%;
+  left: -5%;
+  width: 40%;
+  height: 60%;
+  background: linear-gradient(225deg, hsl(var(--kinetic-peach) / 0.15) 0%, hsl(var(--kinetic-wine) / 0.05) 100%);
+  border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%;
+  animation: float 25s ease-in-out infinite reverse;
+  z-index: 0;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) rotate(5deg) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 20px) rotate(-5deg) scale(0.95);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+/* Sculptural card effects */
+.card-sculptural {
+  background: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7));
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 1px 2px hsl(355 35% 45% / 0.05),
+    0 4px 12px hsl(355 35% 45% / 0.08),
+    0 12px 24px hsl(355 35% 45% / 0.06);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-sculptural:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 2px 4px hsl(355 35% 45% / 0.06),
+    0 8px 16px hsl(355 35% 45% / 0.1),
+    0 16px 32px hsl(355 35% 45% / 0.08);
+}
+
+/* Soft button styles */
+.btn-kinetic {
+  background: linear-gradient(135deg, hsl(var(--kinetic-wine)), hsl(var(--kinetic-burgundy-dark)));
+  box-shadow:
+    0 1px 2px hsl(355 35% 45% / 0.2),
+    0 4px 12px hsl(355 35% 45% / 0.15),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-kinetic:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px hsl(355 35% 45% / 0.25),
+    0 8px 16px hsl(355 35% 45% / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.25);
+}
+
+.btn-kinetic:active {
+  transform: translateY(0);
+}
+
+/* Physio mode styling */
+.physio-mode {
+  --sidebar-bg: hsl(355 35% 98%);
+  --sidebar-border: hsl(355 15% 92%);
+}
+
+.physio-mode .sidebar-item.active {
+  background: hsl(var(--kinetic-wine) / 0.1);
+  color: hsl(var(--kinetic-wine));
+  border-left: 3px solid hsl(var(--kinetic-wine));
+}
+
+/* GP mode styling */
+.gp-mode {
+  --sidebar-bg: hsl(160 20% 98%);
+  --sidebar-border: hsl(160 15% 92%);
+}
+
+.gp-mode .sidebar-item.active {
+  background: hsl(var(--kinetic-sage) / 0.1);
+  color: hsl(var(--kinetic-sage));
+  border-left: 3px solid hsl(var(--kinetic-sage));
+}
+
+/* GP button styles */
+.btn-gp {
+  background: linear-gradient(135deg, hsl(var(--kinetic-sage)), hsl(var(--kinetic-sage-dark)));
+  box-shadow:
+    0 1px 2px hsl(160 25% 45% / 0.2),
+    0 4px 12px hsl(160 25% 45% / 0.15),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gp:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px hsl(160 25% 45% / 0.25),
+    0 8px 16px hsl(160 25% 45% / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.25);
+}
+
+.btn-gp:active {
+  transform: translateY(0);
+}
+
+/* Accordion animation for FAQ */
+@keyframes accordionDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accordionUp {
+  from {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.accordion-down {
+  animation: accordionDown 0.2s ease-out;
+}
+
+.accordion-up {
+  animation: accordionUp 0.2s ease-out;
+}
