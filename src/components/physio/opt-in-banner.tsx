@@ -222,7 +222,7 @@ export function OptInBanner({ physioId, projectedReferrals }: OptInBannerProps) 
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsOpen(false)}
-                  className="shrink-0 text-slate-500 hover:text-slate-700"
+                  className="shrink-0 px-2 font-normal text-slate-400 shadow-none hover:bg-transparent hover:text-slate-600"
                 >
                   Remind me later
                 </Button>
