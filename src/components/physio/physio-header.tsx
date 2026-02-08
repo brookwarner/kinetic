@@ -15,7 +15,7 @@ export function PhysioHeader({
   previewMode,
 }: PhysioHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-2 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-0">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">
           Welcome to Kinetic, {physioName}
@@ -23,7 +23,7 @@ export function PhysioHeader({
         <p className="text-sm text-slate-500">{clinicName}</p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 self-start sm:self-auto">
         {optedIn ? (
           previewMode ? (
             <Badge className="border-[hsl(var(--kinetic-peach))] bg-[hsl(var(--kinetic-peach)/0.3)] text-[hsl(var(--foreground))]">

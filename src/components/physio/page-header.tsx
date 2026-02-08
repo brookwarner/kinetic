@@ -20,10 +20,10 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className="mb-10">
-      <div className="flex items-start justify-between gap-8">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
         {/* Left: Title & Meta */}
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-medium text-slate-500">
               Welcome back, {physioName}
             </p>
@@ -54,14 +54,14 @@ export function PageHeader({
               </div>
             )}
           </div>
-          <h1 className="mt-2 font-serif text-4xl font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
             {title}
           </h1>
           <p className="mt-1.5 text-base text-slate-600">{description}</p>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-start gap-3">
+        <div className="flex flex-wrap items-start gap-3">
           {previewMode && (
             <Link href={`/physio/${physioId}/opt-in`}>
               <Button

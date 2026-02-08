@@ -53,7 +53,7 @@ export default async function GpLayout({ children, params }: LayoutProps) {
     <div className="gp-mode min-h-screen bg-background">
       <GpSidebar gpId={gpId} patients={patientList} />
 
-      <div className="ml-64">
+      <div className="md:ml-64">
         <main className="min-h-screen">{children}</main>
       </div>
     </div>

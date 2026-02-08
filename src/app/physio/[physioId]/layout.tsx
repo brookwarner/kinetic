@@ -25,7 +25,7 @@ export default async function PhysioLayout({ children, params }: LayoutProps) {
     <div className="physio-mode min-h-screen bg-background">
       <PhysioSidebar physioId={physioId} />
 
-      <div className="ml-64">
+      <div className="md:ml-64">
         <main className="min-h-screen">{children}</main>
       </div>
     </div>
