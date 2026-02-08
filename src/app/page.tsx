@@ -101,21 +101,21 @@ export default function HomePage() {
                       href="/physio/physio-sarah"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. Sarah Chen</span>
+                      <span className="font-medium">Sarah Chen</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       href="/physio/physio-james"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. James Park</span>
+                      <span className="font-medium">James Park</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       href="/physio/physio-maya"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. Maya Patel</span>
+                      <span className="font-medium">Maya Patel</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
@@ -188,21 +188,21 @@ export default function HomePage() {
                       href="/gp/gp-alice"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. Alice Thompson</span>
+                      <span className="font-medium">Alice Thompson</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       href="/gp/gp-robert"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. Robert Osei</span>
+                      <span className="font-medium">Robert Osei</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       href="/gp/gp-emma"
                       className="btn-kinetic flex items-center justify-between rounded-xl px-4 py-3 text-white transition-all hover:px-5"
                     >
-                      <span className="font-medium">Dr. Emma Wilson</span>
+                      <span className="font-medium">Emma Wilson</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>

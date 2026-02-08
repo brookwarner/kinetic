@@ -18,7 +18,7 @@ export function PhysioHeader({
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">
-          Welcome to Kinetic, {physioName.replace("Dr. ", "")}
+          Welcome to Kinetic, {physioName}
         </h1>
         <p className="text-sm text-slate-500">{clinicName}</p>
       </div>
