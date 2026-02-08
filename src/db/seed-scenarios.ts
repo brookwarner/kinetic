@@ -20,10 +20,10 @@ export interface PhysioScenario {
 export const physioScenarios: PhysioScenario[] = [
   {
     id: "physio-sarah",
-    name: "Dr. Sarah Chen",
+    name: "Sarah Chen",
     email: "sarah.chen@example.com",
     clinicName: "Momentum Physio",
-    region: "North London",
+    region: "North Sydney",
     specialties: ["sports", "MSK", "post-surgical"],
     capacity: "available",
     optedIn: false,
@@ -39,10 +39,10 @@ export const physioScenarios: PhysioScenario[] = [
   },
   {
     id: "physio-james",
-    name: "Dr. James Park",
+    name: "James Park",
     email: "james.park@example.com",
     clinicName: "Park Physio Practice",
-    region: "North London",
+    region: "North Sydney",
     specialties: ["MSK", "chronic pain", "elderly care"],
     capacity: "limited",
     optedIn: false,
@@ -58,10 +58,10 @@ export const physioScenarios: PhysioScenario[] = [
   },
   {
     id: "physio-maya",
-    name: "Dr. Maya Patel",
+    name: "Maya Patel",
     email: "maya.patel@example.com",
     clinicName: "Restore Health Clinic",
-    region: "South London",
+    region: "South Sydney",
     specialties: ["MSK", "sports", "rehabilitation"],
     capacity: "available",
     optedIn: false,
@@ -77,10 +77,10 @@ export const physioScenarios: PhysioScenario[] = [
   },
   {
     id: "physio-tom",
-    name: "Dr. Tom Hughes",
+    name: "Tom Hughes",
     email: "tom.hughes@example.com",
     clinicName: "Hughes Physiotherapy",
-    region: "East London",
+    region: "East Melbourne",
     specialties: ["MSK", "neurological"],
     capacity: "waitlist",
     optedIn: false,
@@ -96,10 +96,10 @@ export const physioScenarios: PhysioScenario[] = [
   },
   {
     id: "physio-aisha",
-    name: "Dr. Aisha Rahman",
+    name: "Aisha Rahman",
     email: "aisha.rahman@example.com",
     clinicName: "Rahman Physio Centre",
-    region: "West London",
+    region: "West Perth",
     specialties: ["MSK", "women's health", "pelvic floor"],
     capacity: "available",
     optedIn: false,
@@ -125,21 +125,21 @@ export interface GPScenario {
 export const gpScenarios: GPScenario[] = [
   {
     id: "gp-alice",
-    name: "Dr. Alice Thompson",
+    name: "Alice Thompson",
     practiceName: "Highgate Medical Centre",
-    region: "North London",
+    region: "North Sydney",
   },
   {
     id: "gp-robert",
-    name: "Dr. Robert Osei",
+    name: "Robert Osei",
     practiceName: "Clapham Common Practice",
-    region: "South London",
+    region: "South Sydney",
   },
   {
     id: "gp-emma",
-    name: "Dr. Emma Wilson",
+    name: "Emma Wilson",
     practiceName: "Stratford Health Partnership",
-    region: "East London",
+    region: "East Melbourne",
   },
 ];
 
@@ -279,7 +279,7 @@ export function generatePatientProfiles(count: number): PatientProfile[] {
     "Wright",
     "Scott",
   ];
-  const regions = ["North London", "South London", "East London", "West London"];
+  const regions = ["North Sydney", "South Sydney", "East Melbourne", "West Perth"];
 
   const patients: PatientProfile[] = [];
   for (let i = 0; i < count; i++) {
