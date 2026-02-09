@@ -138,6 +138,40 @@ Each signal returns 0-1 value with confidence score. UI displays directional ind
 
 Display hierarchy: Large colored quality indicator text (3xl font) is dominant, confidence level and episode count are secondary context (small muted text).
 
+**Benchmark Integration** (`SignalCard` with benchmarkSummary prop):
+- Percentile pill badge displays below quality indicator (secondary context)
+- Color coding: green (above median), slate (at median), amber (below median)
+- Format: "Xth percentile" in small font with colored background/border
+
+### Benchmark System (Demo Only)
+
+Located in `/src/lib/signals/benchmark-data.ts`:
+
+Hardcoded benchmark data simulating AI-analyzed percentile comparisons without real computation.
+
+**Data Structure**:
+- `PhysioBenchmarkData`: Overall percentile (0-100th), categories with signals
+- `BenchmarkCategory`: 6 categories with icon names, summary, signals array
+- `BenchmarkSignal`: Label, description, values, percentile, status (above/at/below), AI insight
+
+**Categories**:
+1. Clinical Outcomes (Activity icon, green) - Recovery rate, time to outcome, re-injury
+2. Evidence & Technique (BookOpen icon, blue) - Evidence alignment, technique breadth, visit patterns
+3. Patient Journey (Route icon, amber) - Self-discharge, no-shows, time to first appointment
+4. Patient Engagement (Heart icon, purple) - Satisfaction, adherence, communication
+5. Practice Network (Network icon, teal) - Referral partnerships, collaboration
+6. Safety & Equity (ShieldCheck icon, slate) - Adverse events, equity measures
+
+**Helper Functions**:
+- `getBenchmarkSignals(physioId)` - Returns full benchmark data for physio
+- `getBenchmarkForSignalType(physioId, signalType)` - Returns benchmark for specific signal
+- `getTopBenchmarkSignal(physioId)` - Returns highest-performing signal
+
+**Display Components**:
+- `BenchmarkDetailPanel` - Accordion-style category breakdown with percentile bars, median markers (50th), signal-level details, AI insights, methodology footer
+- `SignalCard` with `benchmarkSummary` - Small percentile pill integrated into signal cards
+- `PhysioResultCard` with `benchmarkPercentile` - GP-facing summary showing overall percentile and top signal
+
 ### Eligibility Simulation
 
 Located in `/src/lib/eligibility/simulate.ts`:
@@ -179,17 +213,22 @@ TURSO_DATABASE_URL=libsql://your-database.turso.io
 TURSO_AUTH_TOKEN=your-auth-token
 ```
 
-For local development, defaults to `file:local.db`.
+For local development, defaults to `file:local.db`. When `TURSO_DATABASE_URL` is unset or empty, the seed script automatically treats the database as local.
 
 ## Database Operations
 
 ```bash
 npm run db:push     # Push schema changes to database
 npm run db:studio   # Open Drizzle Studio
-npm run seed        # Seed database with demo scenarios
+npm run seed        # Seed database with demo scenarios (works with local DB when TURSO_DATABASE_URL unset)
 ```
 
 Seed creates 5 physio personas, 3 GPs, 30 patients, 59 episodes, 494 visits, and 32 consents.
+
+**Seed Script Behavior**: The seed script (`/src/db/seed.ts`) automatically detects local databases:
+- Treats database as local when `TURSO_DATABASE_URL` is unset, empty, or starts with `file:`, `http://localhost`, or `https://localhost`
+- Requires `ALLOW_REMOTE_SEED=true` environment variable to seed remote/production databases
+- Prevents accidental data overwrites on cloud databases
 
 ## Key Features
 
@@ -216,7 +255,8 @@ This replaces the previous approach of a sticky top header with separate preview
 
 **Quality Signals Page** (`/physio/[physioId]/signals`):
 - PageHeader component with preview mode integration
-- Three signal cards in responsive grid (outcome, clinical, preference)
+- Three signal cards in responsive grid (outcome, clinical, preference) with benchmark percentile badges
+- BenchmarkDetailPanel component displayed below signal grid with full category breakdown
 - Recompute signals button passed as header action
 - Empty state redirect to opt-in flow for non-opted-in users
 - Preview mode technical details section (only visible when previewMode=true)
@@ -264,14 +304,15 @@ This replaces the previous approach of a sticky top header with separate preview
 When a physiotherapist is not opted in, visiting `/physio/[physioId]/opt-in` shows a 4-step wizard (`OptInWizard`):
 
 1. **Consent Step** - Lists consented episodes that will contribute to signals (fetched from `/api/physio/[physioId]/consented-episodes`)
-2. **Analysing Step** - Animated progress bar with time-based progression (9 seconds total, 100ms update intervals):
-   - 0-3s (0-33%): "Analyzing X consented episodes..."
-   - 3-6s (33-66%): "Computing outcome trajectories and clinical indicators..."
-   - 6-9s (66-99%): "Calculating GP referral matches in your region..."
+2. **Analysing Step** - Animated progress bar with time-based progression (9 seconds total, 100ms update intervals, 4 phases):
+   - 0-2.5s (0-28%): "Analyzing clinical notes from X consented episodes..."
+   - 2.5-5s (28-53%): "Computing outcome trajectories and clinical indicators..."
+   - 5-7s (53-77%): "Matching quality signals to regional benchmarks..."
+   - 7-9s (77-99%): "Comparing against industry and peer benchmarks..."
    - During this step, `toggleOptIn` is called to opt in with preview mode enabled, then `recomputeSignals` runs
    - URL parameter `wizard=true` is added automatically to prevent premature page switching during animation
    - Minimum 9-second animation ensures smooth UX, progress completes at 100% before transitioning after +800ms delay
-3. **Results Step** - Displays computed signals and eligibility data (fetched from `/api/physio/[physioId]/signals` and `/eligibility`)
+3. **Results Step** - Displays computed signals with benchmark percentiles and eligibility data (fetched from `/api/physio/[physioId]/signals` and `/eligibility`)
 4. **Go-Live Step** - Decision point to exit preview mode (calls `disablePreviewMode` and removes wizard parameter, redirects to dashboard) or continue exploring
 
 **Wizard State Management**: The wizard automatically adds `?wizard=true` URL parameter using `window.history.replaceState()` when starting the analysis step. This prevents the page from switching to `SettingsView` mid-flow when `toggleOptIn` completes during the analysis animation.
@@ -316,18 +357,20 @@ Preview mode status is integrated into the `PageHeader` component (not a separat
   - "Find Physiotherapists" button disabled until patient selected
   - Cancel button returns to GP dashboard
 - **Step 2 - Searching**:
-  - 6-second time-based animated progress (100ms update intervals)
-  - Three phases with stage text updates:
-    - 0-2s (0-33%): "Reviewing patient history..."
-    - 2-4s (33-66%): "Analyzing local physiotherapists..."
-    - 4-6s (66-99%): "Matching quality to patient needs..."
+  - 6-second time-based animated progress (100ms update intervals, 4 phases)
+  - Four phases with stage text updates:
+    - 0-1.5s (0-25%): "Reviewing patient history..."
+    - 1.5-3s (25-50%): "Analyzing local physiotherapists..."
+    - 3-4.5s (50-75%): "Checking quality benchmarks..."
+    - 4.5-6s (75-99%): "Matching quality to patient needs..."
   - Progress bar with percentage display
   - Stage indicator icons (FileText → Loader2 → CheckCircle2 as phases complete)
   - Parallel async fetch to `/api/gp/${gpId}/find-physios` (POST with patientRegion)
   - Transitions to results at 6s + 600ms delay regardless of API status
 - **Step 3 - Results**:
   - Grid of `PhysioResultCard` components showing top eligible matches
-  - Cards display: name, clinic, region badge, capacity status, specialty tags, signal confidence dots
+  - Cards display: name, clinic, region badge, capacity status, specialty tags, signal confidence dots, benchmark percentile summary
+  - Benchmark section shows overall percentile with bar graph and median marker, plus top signal name/percentile
   - "Begin Referral" button per card triggers confirmation dialog
   - Confirmation dialog shows physio name and practice details
   - On confirm: 1s simulated delay, navigate to dashboard with `?referral=success` query param
@@ -337,6 +380,10 @@ Preview mode status is integrated into the `PageHeader` component (not a separat
 - Region indicator badge with visual distinction for same-region matches
 - Capacity status badges (available/limited/waitlist) with color coding
 - Signal confidence dots (3 dots: outcome, clinical, patient preference) using `ConfidenceIndicator`
+- Benchmark performance section (slate-50 background) with:
+  - Overall percentile display (Xth percentile) in sage color
+  - Horizontal percentile bar with sage gradient and median marker (50th line)
+  - Top signal name and percentile in small muted text
 - Specialty tags displayed as chips
 - "Begin Referral" CTA button with sage theme (`.btn-gp`)
 - Used in referral wizard step 3 results display
@@ -388,8 +435,9 @@ All database queries use Drizzle ORM with full TypeScript inference. Schema type
 Use shadcn/ui components from `/src/components/ui/`. Custom components follow Tailwind utility-first patterns with HSL color variables.
 
 **Client-Side Interactivity Pattern**: Pages requiring state management (forms, animations, dialogs) use `"use client"` directive:
-- Opt-in wizard (`opt-in-wizard.tsx`) - 4-step flow with progress indicator, animated analysis (9-second time-based animation with 100ms intervals), URL parameter manipulation via `window.history.replaceState()`, parallel data fetching with `Promise.all()`, `AlertDialog` for go-live confirmation
-- Referral wizard (`new-referral-wizard.tsx`) - 3-step flow (patient → searching → results), state management with `useState` for step progression and form data, 6-second time-based search animation (100ms intervals, 3 phases: 0-2s patient review, 2-4s physio analysis, 4-6s quality matching), parallel physio search using async/await pattern with `searchPromise`, progress indicator with step completion tracking, confirmation dialog before referral creation with demo-mode simulation (1s delay, no database write)
+- Opt-in wizard (`opt-in-wizard.tsx`) - 4-step flow with progress indicator, animated analysis (9-second time-based animation with 100ms intervals, 4 phases including benchmark matching), URL parameter manipulation via `window.history.replaceState()`, parallel data fetching with `Promise.all()`, `AlertDialog` for go-live confirmation, imports `getBenchmarkSignals` for results display
+- Referral wizard (`new-referral-wizard.tsx`) - 3-step flow (patient → searching → results), state management with `useState` for step progression and form data, 6-second time-based search animation (100ms intervals, 4 phases: 0-1.5s patient review, 1.5-3s physio analysis, 3-4.5s benchmark checking, 4.5-6s quality matching), parallel physio search using async/await pattern with `searchPromise`, progress indicator with step completion tracking, confirmation dialog before referral creation with demo-mode simulation (1s delay, no database write), imports `getTopBenchmarkSignal` for card display
+- Benchmark detail panel (`benchmark-detail-panel.tsx`) - Accordion component for category-level benchmark breakdown with expand/collapse state, percentile bars, status badges, AI insights
 - Settings view (`settings-view.tsx`) - Status management with confirmation dialogs
 - Opt-in banner (`opt-in-banner.tsx`) - FAQ accordion and CTA interactions
 - Physio sidebar (`physio-sidebar.tsx`) - Client component using `usePathname()` for active link state with exact match logic for dashboard and prefix matching for other routes
@@ -421,6 +469,10 @@ Use shadcn/ui components from `/src/components/ui/`. Custom components follow Ta
 - Clock icon for pending/in-progress states
 - LayoutDashboard, Settings icons for sidebar navigation items
 - RotateCcw icon for development reset functionality
+- BarChart3 icon for benchmark indicators and performance metrics
+- Brain icon for AI methodology explanations in benchmark panel
+- ChevronDown icon for accordion expand/collapse in benchmark panel
+- BookOpen, Route, Heart, Network, ShieldCheck icons for benchmark category identification
 
 ## Color System
 
@@ -466,6 +518,18 @@ Custom color palette defined in `globals.css` using HSL variables:
   - Released: green-50 bg, green-700 text, green-200 border
   - Declined: red-50 bg, red-700 text, red-200 border
   - Expired: slate-50 bg, slate-700 text, slate-200 border
+- **Benchmark status indicators**:
+  - Above median: green-50 bg, green-700 text, green-200 border
+  - At median: slate-50 bg, slate-700 text, slate-200 border
+  - Below median: amber-50 bg, amber-700 text, amber-200 border
+  - Percentile bars: wine for physio view, sage for GP view, with median marker line at 50th
+- **Benchmark category colors** (BenchmarkDetailPanel):
+  - Clinical Outcomes: green-50 bg, green-700 text, green-600 accent
+  - Evidence & Technique: blue-50 bg, blue-700 text, blue-600 accent
+  - Patient Journey: amber-50 bg, amber-700 text, amber-600 accent
+  - Patient Engagement: purple-50 bg, purple-700 text, purple-600 accent
+  - Practice Network: teal-50 bg, teal-700 text, teal-600 accent
+  - Safety & Equity: slate-50 bg, slate-700 text, slate-600 accent
 - Development utilities use orange-themed colors (orange-300 border, orange-700 text, orange-50 hover)
 
 ## Demo Scenarios
@@ -486,6 +550,7 @@ Custom color palette defined in `globals.css` using HSL variables:
 
 **Core Logic:**
 - `/src/lib/signals/compute.ts` - Signal orchestrator and computation logic
+- `/src/lib/signals/benchmark-data.ts` - Hardcoded benchmark data (demo only), percentile rankings, category definitions
 - `/src/lib/eligibility/simulate.ts` - Eligibility computation rules
 - `/src/lib/continuity/generate-summary.ts` - Continuity summary generation engine
 - `/src/lib/continuity/summary-templates.ts` - Template functions for summary sections
@@ -501,8 +566,11 @@ Custom color palette defined in `globals.css` using HSL variables:
 
 **Key Components:**
 - `/src/components/physio/page-header.tsx` - Unified physio page header
+- `/src/components/physio/signal-card.tsx` - Signal display with benchmark percentile integration
+- `/src/components/physio/benchmark-detail-panel.tsx` - Accordion-style benchmark category breakdown
 - `/src/components/gp/gp-sidebar.tsx` - GP navigation with sage theme
-- `/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx` - 3-step referral flow
+- `/src/components/gp/physio-result-card.tsx` - Physio match card with benchmark performance section
+- `/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx` - 3-step referral flow with benchmark checking
 - `/src/components/patient/continuity-consent-form.tsx` - Care transition consent
 
 **Documentation:**

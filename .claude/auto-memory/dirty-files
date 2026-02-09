@@ -1,1 +1,9 @@
 /Users/brook.warner/Documents/GitHub/kinetic/src/app/physio/[physioId]/handoffs/page.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/lib/signals/benchmark-data.ts
+/Users/brook.warner/Documents/GitHub/kinetic/src/components/physio/signal-card.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/components/physio/benchmark-detail-panel.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/app/physio/[physioId]/signals/page.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/components/gp/physio-result-card.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/app/physio/[physioId]/opt-in/opt-in-wizard.tsx
+/Users/brook.warner/Documents/GitHub/kinetic/src/db/seed.ts
