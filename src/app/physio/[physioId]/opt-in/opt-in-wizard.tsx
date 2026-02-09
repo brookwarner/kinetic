@@ -25,17 +25,21 @@ import { SignalCard } from "@/components/physio/signal-card";
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   Eye,
   FileText,
   Loader2,
   Rocket,
   Shield,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { toggleOptIn, disablePreviewMode } from "@/actions/opt-in";
 import { recomputeSignals } from "@/actions/signals";
 import { cn } from "@/lib/utils";
+import { getBenchmarkSignals, getBenchmarkForSignalType } from "@/lib/signals/benchmark-data";
+import { BenchmarkDetailPanel } from "@/components/physio/benchmark-detail-panel";
 
 interface ConsentedEpisode {
   id: string;
@@ -118,17 +122,18 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
     const startTime = Date.now();
 
     // Set initial stage with episode count
-    setAnalysisStage(`Analyzing ${consentedEpisodes.length} consented episodes...`);
+    setAnalysisStage(`Analyzing clinical notes from ${consentedEpisodes.length} consented episodes...`);
 
     // First, actually opt in
     setIsOptingIn(true);
     await toggleOptIn(physioId, true);
     setIsOptingIn(false);
 
-    // Time-based progress animation: 3 seconds per phase (9 seconds total)
-    // Phase 1: 0-3s = 0-33%
-    // Phase 2: 3-6s = 33-66%
-    // Phase 3: 6-9s = 66-99%
+    // Time-based progress animation: 4 phases within 9 seconds total
+    // Phase 1: 0-2.5s = 0-28%
+    // Phase 2: 2.5-5s = 28-53%
+    // Phase 3: 5-7s = 53-77%
+    // Phase 4: 7-9s = 77-99%
     const INTERVAL_MS = 100; // Update every 100ms for smooth animation
 
     // Start async operations in parallel (don't wait for them)
@@ -161,18 +166,22 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
     const progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
 
-      if (elapsed < 3000) {
-        // Phase 1: Gathering episodes (0-3 seconds)
-        setAnalysisStage(`Analyzing ${consentedEpisodes.length} consented episodes...`);
-        setAnalysisProgress((elapsed / 3000) * 33);
-      } else if (elapsed < 6000) {
-        // Phase 2: Computing signals (3-6 seconds)
+      if (elapsed < 2500) {
+        // Phase 1: Analyzing notes (0-2.5 seconds)
+        setAnalysisStage(`Analyzing clinical notes from ${consentedEpisodes.length} consented episodes...`);
+        setAnalysisProgress((elapsed / 2500) * 28);
+      } else if (elapsed < 5000) {
+        // Phase 2: Computing signals (2.5-5 seconds)
         setAnalysisStage("Computing outcome trajectories and clinical indicators...");
-        setAnalysisProgress(33 + ((elapsed - 3000) / 3000) * 33);
+        setAnalysisProgress(28 + ((elapsed - 2500) / 2500) * 25);
+      } else if (elapsed < 7000) {
+        // Phase 3: Regional benchmarks (5-7 seconds)
+        setAnalysisStage("Matching quality signals to regional benchmarks...");
+        setAnalysisProgress(53 + ((elapsed - 5000) / 2000) * 24);
       } else if (elapsed < 9000) {
-        // Phase 3: Calculating eligibility (6-9 seconds)
-        setAnalysisStage("Calculating GP referral matches in your region...");
-        setAnalysisProgress(66 + ((elapsed - 6000) / 3000) * 33);
+        // Phase 4: Industry benchmarks (7-9 seconds)
+        setAnalysisStage("Comparing against industry and peer benchmarks...");
+        setAnalysisProgress(77 + ((elapsed - 7000) / 2000) * 22);
       } else {
         // Animation complete at 9 seconds
         clearInterval(progressInterval);
@@ -183,7 +192,7 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
         dataPromise.then(() => {
           setTimeout(() => {
             setCurrentStep("results");
-          }, 800); // Show "complete" state briefly
+          }, 800);
         });
       }
     }, INTERVAL_MS);
@@ -407,20 +416,20 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      analysisProgress >= 0 ? "bg-slate-50" : ""
+                      analysisProgress > 0 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full",
-                        analysisProgress >= 30
+                        analysisProgress >= 25
                           ? "bg-green-100 text-green-600"
                           : analysisProgress > 0
                             ? "bg-[hsl(var(--kinetic-peach))] text-[hsl(var(--kinetic-wine))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
-                      {analysisProgress >= 30 ? (
+                      {analysisProgress >= 25 ? (
                         <CheckCircle2 className="h-5 w-5" />
                       ) : analysisProgress > 0 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -429,29 +438,29 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                       )}
                     </div>
                     <span className="text-sm text-slate-700">
-                      Analyzing consented patient episodes
+                      Analyzing consented clinical notes
                     </span>
                   </div>
 
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      analysisProgress >= 30 ? "bg-slate-50" : ""
+                      analysisProgress >= 25 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full",
-                        analysisProgress >= 70
+                        analysisProgress >= 50
                           ? "bg-green-100 text-green-600"
-                          : analysisProgress >= 30
+                          : analysisProgress >= 25
                             ? "bg-[hsl(var(--kinetic-peach))] text-[hsl(var(--kinetic-wine))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
-                      {analysisProgress >= 70 ? (
+                      {analysisProgress >= 50 ? (
                         <CheckCircle2 className="h-5 w-5" />
-                      ) : analysisProgress >= 30 ? (
+                      ) : analysisProgress >= 25 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
                         <FileText className="h-5 w-5" />
@@ -465,7 +474,36 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      analysisProgress >= 70 ? "bg-slate-50" : ""
+                      analysisProgress >= 50 ? "bg-slate-50" : ""
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full",
+                        analysisProgress >= 75
+                          ? "bg-green-100 text-green-600"
+                          : analysisProgress >= 50
+                            ? "bg-[hsl(var(--kinetic-peach))] text-[hsl(var(--kinetic-wine))]"
+                            : "bg-slate-100 text-slate-400"
+                      )}
+                    >
+                      {analysisProgress >= 75 ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : analysisProgress >= 50 ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )}
+                    </div>
+                    <span className="text-sm text-slate-700">
+                      Matching quality signals to benchmarks
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg p-3 transition-colors",
+                      analysisProgress >= 75 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
@@ -473,21 +511,21 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                         "flex h-8 w-8 items-center justify-center rounded-full",
                         analysisProgress >= 100
                           ? "bg-green-100 text-green-600"
-                          : analysisProgress >= 70
+                          : analysisProgress >= 75
                             ? "bg-[hsl(var(--kinetic-peach))] text-[hsl(var(--kinetic-wine))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
                       {analysisProgress >= 100 ? (
                         <CheckCircle2 className="h-5 w-5" />
-                      ) : analysisProgress >= 70 ? (
+                      ) : analysisProgress >= 75 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                        <FileText className="h-5 w-5" />
+                        <BarChart3 className="h-5 w-5" />
                       )}
                     </div>
                     <span className="text-sm text-slate-700">
-                      Calculating GP referral matches in your region
+                      Comparing against industry benchmarks
                     </span>
                   </div>
                 </div>
@@ -582,6 +620,7 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                 value={signal.value}
                 confidence={signal.confidence}
                 episodeCount={signal.episodeCount}
+                benchmarkSummary={getBenchmarkForSignalType(physioId, signal.type as "outcome-trajectory" | "clinical-decision" | "patient-preference") ?? undefined}
               />
             ))}
           </div>
@@ -596,6 +635,28 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Benchmark Analysis */}
+          {(() => {
+            const benchmarkData = getBenchmarkSignals(physioId);
+            if (!benchmarkData) return null;
+            return (
+              <div className="space-y-3">
+                <div className="relative flex items-center py-2">
+                  <div className="flex-grow border-t border-slate-200" />
+                  <span className="mx-4 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                    <Sparkles className="h-3 w-3" />
+                    AI Benchmark Analysis
+                  </span>
+                  <div className="flex-grow border-t border-slate-200" />
+                </div>
+                <BenchmarkDetailPanel data={benchmarkData} defaultExpanded={false} />
+                <p className="text-center text-xs text-slate-400">
+                  Analysed by Kinetic AI from your clinical notes and episode data
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Confidence Factors */}
           {eligibility && (

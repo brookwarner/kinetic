@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { MapPin, Clock, CheckCircle2 } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, BarChart3 } from "lucide-react";
 
 interface SignalData {
   type: string;
@@ -21,6 +21,11 @@ interface PhysioResultCardProps {
   sameRegion: boolean;
   signals: SignalData[];
   onBeginReferral: () => void;
+  benchmarkPercentile?: {
+    overall: number;
+    topSignal: string;
+    topPercentile: number;
+  };
 }
 
 function ConfidenceDots({ signals }: { signals: SignalData[] }) {
@@ -91,6 +96,7 @@ export function PhysioResultCard({
   sameRegion,
   signals,
   onBeginReferral,
+  benchmarkPercentile,
 }: PhysioResultCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
@@ -114,6 +120,30 @@ export function PhysioResultCard({
           <ConfidenceDots signals={signals} />
         </div>
       </div>
+
+      {benchmarkPercentile && (
+        <div className="mt-3 rounded-lg bg-slate-50 p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <BarChart3 className="h-3 w-3" />
+              <span>Benchmark performance</span>
+            </div>
+            <span className="text-xs font-semibold text-[hsl(var(--kinetic-sage))]">
+              {benchmarkPercentile.overall}th percentile
+            </span>
+          </div>
+          <div className="relative h-1.5 rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-[hsl(var(--kinetic-sage))] transition-all duration-500"
+              style={{ width: `${benchmarkPercentile.overall}%` }}
+            />
+            <div className="absolute left-1/2 top-1/2 h-2.5 w-px -translate-x-1/2 -translate-y-1/2 bg-slate-300" />
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Top signal: {benchmarkPercentile.topSignal} ({benchmarkPercentile.topPercentile}th)
+          </p>
+        </div>
+      )}
 
       {specialties.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1">

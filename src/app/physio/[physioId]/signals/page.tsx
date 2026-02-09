@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
 import { SignalCard } from "@/components/physio/signal-card";
 import { PageHeader } from "@/components/physio/page-header";
+import { getBenchmarkSignals, getBenchmarkForSignalType } from "@/lib/signals/benchmark-data";
+import { BenchmarkDetailPanel } from "@/components/physio/benchmark-detail-panel";
 import { recomputeSignals } from "@/actions/signals";
 import { formatDateTime } from "@/lib/utils";
 
@@ -227,6 +229,8 @@ export default async function SignalsPage({ params }: Props) {
     (s) => s.signalType === "patient-preference"
   );
 
+  const benchmarkData = getBenchmarkSignals(physioId);
+
   return (
     <div className="px-6 py-8">
       <PageHeader
@@ -262,6 +266,7 @@ export default async function SignalsPage({ params }: Props) {
                 value={outcomeSignal.value}
                 confidence={outcomeSignal.confidence}
                 episodeCount={outcomeSignal.episodeCount}
+                benchmarkSummary={getBenchmarkForSignalType(physioId, "outcome-trajectory") ?? undefined}
               />
             )}
 
@@ -272,6 +277,7 @@ export default async function SignalsPage({ params }: Props) {
                 value={clinicalSignal.value}
                 confidence={clinicalSignal.confidence}
                 episodeCount={clinicalSignal.episodeCount}
+                benchmarkSummary={getBenchmarkForSignalType(physioId, "clinical-decision") ?? undefined}
               />
             )}
 
@@ -282,12 +288,32 @@ export default async function SignalsPage({ params }: Props) {
                 value={preferenceSignal.value}
                 confidence={preferenceSignal.confidence}
                 episodeCount={preferenceSignal.episodeCount}
+                benchmarkSummary={getBenchmarkForSignalType(physioId, "patient-preference") ?? undefined}
               />
             )}
           </div>
 
+          {/* Benchmark Analysis Section */}
+          {benchmarkData && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-semibold tracking-tight text-slate-900">
+                  Benchmark Analysis
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  AI-powered comparison against industry and peer benchmarks
+                </p>
+              </div>
+              <BenchmarkDetailPanel
+                data={benchmarkData}
+                defaultExpanded={physio.previewMode}
+              />
+            </div>
+          )}
+
           {/* Signal Details (Preview Mode) */}
           {physio.previewMode && (
+            <>
             <Card>
               <CardHeader>
                 <CardTitle>Technical Details (Preview Mode)</CardTitle>
@@ -456,6 +482,32 @@ export default async function SignalsPage({ params }: Props) {
                 )}
               </CardContent>
             </Card>
+
+            {benchmarkData && (
+              <Card className="border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-4 w-4 text-[hsl(var(--kinetic-wine))]" />
+                    Benchmark Methodology
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-slate-600">
+                  <p>
+                    Kinetic AI analyses structured clinical data and treatment notes
+                    from your consented episodes using natural language processing
+                    to extract patterns in treatment decisions, patient progress,
+                    and clinical outcomes.
+                  </p>
+                  <p>
+                    Benchmarks are derived from anonymised, aggregated data across
+                    the Kinetic network. All comparisons use risk-adjusted
+                    methodologies that account for patient complexity, condition
+                    severity, and regional factors.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            </>
           )}
 
           {/* Important Note */}

@@ -26,6 +26,7 @@ import { PhysioResultCard } from "@/components/gp/physio-result-card";
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   FileText,
   Loader2,
@@ -33,6 +34,7 @@ import {
   Send,
   User,
 } from "lucide-react";
+import { getBenchmarkSignals, getTopBenchmarkSignal } from "@/lib/signals/benchmark-data";
 import { cn } from "@/lib/utils";
 
 interface Patient {
@@ -144,26 +146,28 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
     const progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
 
-      if (elapsed < 2000) {
-        // Phase 1: Reviewing patient (0-2 seconds)
+      if (elapsed < 1500) {
+        // Phase 1: Reviewing patient (0-1.5 seconds)
         setSearchStage("Reviewing patient history...");
-        setSearchProgress((elapsed / 2000) * 33);
-      } else if (elapsed < 4000) {
-        // Phase 2: Analyzing physios (2-4 seconds)
+        setSearchProgress((elapsed / 1500) * 25);
+      } else if (elapsed < 3000) {
+        // Phase 2: Analyzing physios (1.5-3 seconds)
         setSearchStage("Analyzing local physiotherapists...");
-        setSearchProgress(33 + ((elapsed - 2000) / 2000) * 33);
+        setSearchProgress(25 + ((elapsed - 1500) / 1500) * 25);
+      } else if (elapsed < 4500) {
+        // Phase 3: Quality benchmarks (3-4.5 seconds)
+        setSearchStage("Checking quality benchmarks...");
+        setSearchProgress(50 + ((elapsed - 3000) / 1500) * 25);
       } else if (elapsed < 6000) {
-        // Phase 3: Matching quality (4-6 seconds)
+        // Phase 4: Matching (4.5-6 seconds)
         setSearchStage("Matching quality to patient needs...");
-        setSearchProgress(66 + ((elapsed - 4000) / 2000) * 33);
+        setSearchProgress(75 + ((elapsed - 4500) / 1500) * 24);
       } else {
         // Animation complete at 6 seconds
         clearInterval(progressInterval);
         setSearchProgress(100);
         setSearchStage("Search complete!");
 
-        // Always transition after a brief delay, regardless of API status
-        // The results page will show loading state if data isn't ready
         setTimeout(() => {
           setCurrentStep("results");
         }, 600);
@@ -375,20 +379,20 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      searchProgress >= 0 ? "bg-slate-50" : ""
+                      searchProgress > 0 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full",
-                        searchProgress >= 30
+                        searchProgress >= 25
                           ? "bg-green-100 text-green-600"
                           : searchProgress > 0
                             ? "bg-[hsl(var(--kinetic-sage-light))] text-[hsl(var(--kinetic-sage))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
-                      {searchProgress >= 30 ? (
+                      {searchProgress >= 25 ? (
                         <CheckCircle2 className="h-5 w-5" />
                       ) : searchProgress > 0 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -404,22 +408,22 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      searchProgress >= 30 ? "bg-slate-50" : ""
+                      searchProgress >= 25 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full",
-                        searchProgress >= 70
+                        searchProgress >= 50
                           ? "bg-green-100 text-green-600"
-                          : searchProgress >= 30
+                          : searchProgress >= 25
                             ? "bg-[hsl(var(--kinetic-sage-light))] text-[hsl(var(--kinetic-sage))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
-                      {searchProgress >= 70 ? (
+                      {searchProgress >= 50 ? (
                         <CheckCircle2 className="h-5 w-5" />
-                      ) : searchProgress >= 30 ? (
+                      ) : searchProgress >= 25 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
                         <Search className="h-5 w-5" />
@@ -433,7 +437,36 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
                   <div
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      searchProgress >= 70 ? "bg-slate-50" : ""
+                      searchProgress >= 50 ? "bg-slate-50" : ""
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full",
+                        searchProgress >= 75
+                          ? "bg-green-100 text-green-600"
+                          : searchProgress >= 50
+                            ? "bg-[hsl(var(--kinetic-sage-light))] text-[hsl(var(--kinetic-sage))]"
+                            : "bg-slate-100 text-slate-400"
+                      )}
+                    >
+                      {searchProgress >= 75 ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : searchProgress >= 50 ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <BarChart3 className="h-5 w-5" />
+                      )}
+                    </div>
+                    <span className="text-sm text-slate-700">
+                      Checking quality benchmarks
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg p-3 transition-colors",
+                      searchProgress >= 75 ? "bg-slate-50" : ""
                     )}
                   >
                     <div
@@ -441,14 +474,14 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
                         "flex h-8 w-8 items-center justify-center rounded-full",
                         searchProgress >= 100
                           ? "bg-green-100 text-green-600"
-                          : searchProgress >= 70
+                          : searchProgress >= 75
                             ? "bg-[hsl(var(--kinetic-sage-light))] text-[hsl(var(--kinetic-sage))]"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
                       {searchProgress >= 100 ? (
                         <CheckCircle2 className="h-5 w-5" />
-                      ) : searchProgress >= 70 ? (
+                      ) : searchProgress >= 75 ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
                         <User className="h-5 w-5" />
@@ -492,22 +525,36 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {physioResults.map((physio) => (
-                <PhysioResultCard
-                  key={physio.id}
-                  {...physio}
-                  onBeginReferral={() => handleBeginReferral(physio)}
-                />
-              ))}
+              {physioResults.map((physio) => {
+                const benchmarkData = getBenchmarkSignals(physio.id);
+                const topSignal = getTopBenchmarkSignal(physio.id);
+                return (
+                  <PhysioResultCard
+                    key={physio.id}
+                    {...physio}
+                    onBeginReferral={() => handleBeginReferral(physio)}
+                    benchmarkPercentile={
+                      benchmarkData && topSignal
+                        ? {
+                            overall: benchmarkData.overallPercentile,
+                            topSignal: topSignal.label,
+                            topPercentile: topSignal.percentile,
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </div>
           )}
 
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="pt-6">
               <p className="text-sm text-blue-900">
-                <strong>Quality-based matching:</strong> Physiotherapists are shown based on their
-                quality signals, capacity, and location — never ranked numerically. You retain
-                full control over which provider to refer to.
+                <strong>AI-powered quality matching:</strong> Physiotherapists are matched using
+                AI-analysed quality benchmarks including recovery rates, evidence alignment,
+                and patient outcomes — never ranked numerically. You retain full control over
+                which provider to refer to.
               </p>
             </CardContent>
           </Card>

@@ -20,6 +20,10 @@ interface SignalCardProps {
   value: number; // 0-100
   confidence: "low" | "medium" | "high";
   episodeCount: number;
+  benchmarkSummary?: {
+    percentile: number;
+    status: "above" | "at" | "below";
+  };
 }
 
 export function SignalCard({
@@ -28,6 +32,7 @@ export function SignalCard({
   value,
   confidence,
   episodeCount,
+  benchmarkSummary,
 }: SignalCardProps) {
   // Determine directional indicator (NOT showing numeric scores to users)
   // The QUALITY is the dominant element, confidence is secondary context
@@ -84,6 +89,22 @@ export function SignalCard({
               {indicatorText}
             </p>
           </div>
+          {/* Benchmark percentile pill */}
+          {benchmarkSummary && (
+            <div>
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                  benchmarkSummary.status === "above"
+                    ? "border-green-200 bg-green-50 text-green-700"
+                    : benchmarkSummary.status === "at"
+                      ? "border-slate-200 bg-slate-50 text-slate-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                }`}
+              >
+                {benchmarkSummary.percentile}th percentile
+              </span>
+            </div>
+          )}
           {/* SECONDARY: Confidence and episode count in muted text */}
           <div className="flex items-center gap-3 text-sm text-slate-500">
             <span>
