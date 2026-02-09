@@ -1,3 +1,6 @@
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd());
+
 import { eq } from "drizzle-orm";
 import { db } from "./index";
 import {

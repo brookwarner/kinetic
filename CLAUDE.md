@@ -220,15 +220,17 @@ For local development, defaults to `file:local.db`. When `TURSO_DATABASE_URL` is
 ```bash
 npm run db:push     # Push schema changes to database
 npm run db:studio   # Open Drizzle Studio
-npm run seed        # Seed database with demo scenarios (works with local DB when TURSO_DATABASE_URL unset)
+npm run seed        # Seed database with demo scenarios (loads env files via @next/env, connects to configured DB)
 ```
 
 Seed creates 5 physio personas, 3 GPs, 30 patients, 59 episodes, 494 visits, and 32 consents.
 
-**Seed Script Behavior**: The seed script (`/src/db/seed.ts`) automatically detects local databases:
+**Seed Script Behavior**: The seed script (`/src/db/seed.ts`) loads environment variables using `@next/env` to match Next.js behavior:
+- Automatically loads `.env`, `.env.local`, and other Next.js env files before connecting to the database
 - Treats database as local when `TURSO_DATABASE_URL` is unset, empty, or starts with `file:`, `http://localhost`, or `https://localhost`
 - Requires `ALLOW_REMOTE_SEED=true` environment variable to seed remote/production databases
 - Prevents accidental data overwrites on cloud databases
+- Running `npm run seed` connects to whatever database is configured in your env files (local or remote)
 
 ## Key Features
 
