@@ -361,11 +361,33 @@ export interface EpisodeTemplate {
   adjustmentVisits: number[]; // Which visit numbers had treatment adjustments
 }
 
+function hashStringToUint32(input: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createSeededRandom(seed: string): () => number {
+  let state = hashStringToUint32(seed);
+  return () => {
+    state += 0x6d2b79f5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // Generate realistic episode templates for each physio type
 export function generateEpisodeTemplates(
   profile: PhysioScenario["expectedSignalProfile"],
-  count: number
+  count: number,
+  seed = "default-seed"
 ): EpisodeTemplate[] {
+  const random = createSeededRandom(seed);
   const templates: EpisodeTemplate[] = [];
   const conditions = [
     "Lower back pain",
@@ -382,60 +404,60 @@ export function generateEpisodeTemplates(
 
   for (let i = 0; i < count; i++) {
     const condition = conditions[i % conditions.length];
-    const isGpReferred = Math.random() > 0.4; // 60% GP referred
-    const visitCount = 4 + Math.floor(Math.random() * 9); // 4-12 visits
+    const isGpReferred = random() > 0.4; // 60% GP referred
+    const visitCount = 4 + Math.floor(random() * 9); // 4-12 visits
 
     let status: EpisodeTemplate["status"] = "discharged";
-    if (i === 0 && Math.random() > 0.5) status = "active"; // Some active episodes
-    if (profile.outcomeTrajectory === "mixed" && Math.random() > 0.8)
+    if (i === 0 && random() > 0.5) status = "active"; // Some active episodes
+    if (profile.outcomeTrajectory === "mixed" && random() > 0.8)
       status = "self-discharged";
 
     // Generate pain progression
     const painProgression: number[] = [];
-    let currentPain = 6 + Math.floor(Math.random() * 3); // Start 6-8
+    let currentPain = 6 + Math.floor(random() * 3); // Start 6-8
     for (let v = 0; v < visitCount; v++) {
       painProgression.push(currentPain);
       if (profile.outcomeTrajectory === "strong") {
-        currentPain = Math.max(0, currentPain - 1 - Math.floor(Math.random() * 2));
+        currentPain = Math.max(0, currentPain - 1 - Math.floor(random() * 2));
       } else if (profile.outcomeTrajectory === "moderate") {
-        currentPain = Math.max(1, currentPain - Math.floor(Math.random() * 2));
+        currentPain = Math.max(1, currentPain - Math.floor(random() * 2));
       } else if (profile.outcomeTrajectory === "emerging") {
-        currentPain = Math.max(2, currentPain - Math.floor(Math.random() * 1.5));
+        currentPain = Math.max(2, currentPain - Math.floor(random() * 1.5));
       } else {
         // mixed
         currentPain = Math.max(
           1,
-          currentPain + (Math.random() > 0.5 ? -1 : 0)
+          currentPain + (random() > 0.5 ? -1 : 0)
         );
       }
     }
 
     // Generate function progression
     const functionProgression: number[] = [];
-    let currentFunction = 40 + Math.floor(Math.random() * 20); // Start 40-60
+    let currentFunction = 40 + Math.floor(random() * 20); // Start 40-60
     for (let v = 0; v < visitCount; v++) {
       functionProgression.push(currentFunction);
       if (profile.outcomeTrajectory === "strong") {
-        currentFunction = Math.min(95, currentFunction + 5 + Math.floor(Math.random() * 5));
+        currentFunction = Math.min(95, currentFunction + 5 + Math.floor(random() * 5));
       } else if (profile.outcomeTrajectory === "moderate") {
-        currentFunction = Math.min(85, currentFunction + 3 + Math.floor(Math.random() * 4));
+        currentFunction = Math.min(85, currentFunction + 3 + Math.floor(random() * 4));
       } else if (profile.outcomeTrajectory === "emerging") {
-        currentFunction = Math.min(75, currentFunction + 2 + Math.floor(Math.random() * 3));
+        currentFunction = Math.min(75, currentFunction + 2 + Math.floor(random() * 3));
       } else {
         // mixed
         currentFunction = Math.min(
           80,
-          currentFunction + Math.floor(Math.random() * 3)
+          currentFunction + Math.floor(random() * 3)
         );
       }
     }
 
     // Escalation visits (good decision-making = earlier escalations when needed)
     const escalationVisits: number[] = [];
-    if (profile.clinicalDecision === "strong" && Math.random() > 0.7) {
-      escalationVisits.push(2 + Math.floor(Math.random() * 2)); // Early escalation
-    } else if (profile.clinicalDecision === "mixed" && Math.random() > 0.8) {
-      escalationVisits.push(5 + Math.floor(Math.random() * 3)); // Late escalation
+    if (profile.clinicalDecision === "strong" && random() > 0.7) {
+      escalationVisits.push(2 + Math.floor(random() * 2)); // Early escalation
+    } else if (profile.clinicalDecision === "mixed" && random() > 0.8) {
+      escalationVisits.push(5 + Math.floor(random() * 3)); // Late escalation
     }
 
     // Treatment adjustment visits

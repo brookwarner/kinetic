@@ -25,6 +25,25 @@ import {
 import { generateSummary } from "../lib/continuity/generate-summary";
 
 async function seed() {
+  const dbUrl = process.env.TURSO_DATABASE_URL ?? "";
+  const isLocalDb =
+    !dbUrl ||
+    dbUrl.startsWith("file:") ||
+    dbUrl.startsWith("http://localhost") ||
+    dbUrl.startsWith("https://localhost");
+  const allowRemoteSeed = process.env.ALLOW_REMOTE_SEED === "true";
+
+  if (!isLocalDb && !allowRemoteSeed) {
+    console.error("❌ Refusing to seed a non-local database.");
+    console.error(
+      `Current TURSO_DATABASE_URL: ${dbUrl || "(not set; using default local path)"}`
+    );
+    console.error(
+      "Set ALLOW_REMOTE_SEED=true only if you intentionally want to overwrite a remote DB."
+    );
+    process.exit(1);
+  }
+
   console.log("🌱 Starting seed...");
 
   // Clear existing data (order matters for foreign keys)
@@ -113,10 +132,17 @@ async function seed() {
 
   for (const physioScenario of physioScenarios) {
     console.log(`  Processing ${physioScenario.name}...`);
+    const baseSeed = process.env.SEED_BASE ?? "kinetic-demo-v1";
     const episodeTemplates = generateEpisodeTemplates(
       physioScenario.expectedSignalProfile,
-      physioScenario.episodeCount
+      physioScenario.episodeCount,
+      `${baseSeed}:${physioScenario.id}`
     );
+    let grantedConsentsForPhysio = 0;
+    const consentTarget =
+      physioScenario.id === "physio-sarah"
+        ? Math.min(12, physioScenario.episodeCount)
+        : Math.max(2, Math.floor(physioScenario.episodeCount * 0.5));
 
     for (let i = 0; i < episodeTemplates.length; i++) {
       const template = episodeTemplates[i];
@@ -175,9 +201,14 @@ async function seed() {
         totalVisits++;
       }
 
-      // Insert consent (60% granted for GP-referred episodes, regardless of opt-in status)
-      // This allows testing the opt-in flow with pre-existing consents
-      if (template.isGpReferred && Math.random() > 0.4) {
+      // Deterministic consent seeding:
+      // - Sarah is a "happy path" demo with deep consented data (high-confidence signals)
+      // - Other physios keep a moderate amount of consented history
+      const shouldGrantConsent =
+        grantedConsentsForPhysio < consentTarget &&
+        (physioScenario.id === "physio-sarah" || template.isGpReferred);
+
+      if (shouldGrantConsent) {
         const consentId = `consent-${episodeId}`;
         await db.insert(consents).values({
           id: consentId,
@@ -190,6 +221,7 @@ async function seed() {
           scope: "episode-data-for-signal-computation",
         });
         totalConsents++;
+        grantedConsentsForPhysio++;
       }
     }
   }
@@ -304,15 +336,13 @@ async function seed() {
   }
   console.log(`✓ Created ${totalTransitions} transition scenarios`);
 
-  // Compute signals for opted-in physios
-  console.log("\nComputing signals for opted-in physiotherapists...");
+  // Compute signals for all physios so demo profiles always have visible quality data.
+  console.log("\nComputing signals for all physiotherapists...");
   const { computeSignalsForPhysio } = await import("../lib/signals/compute");
 
   for (const scenario of physioScenarios) {
-    if (scenario.optedIn) {
-      console.log(`  Computing signals for ${scenario.name}...`);
-      await computeSignalsForPhysio(scenario.id);
-    }
+    console.log(`  Computing signals for ${scenario.name}...`);
+    await computeSignalsForPhysio(scenario.id);
   }
 
   console.log("\n🎉 Seed completed successfully!");
