@@ -12,11 +12,11 @@ export default function HomePage() {
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="mb-16 text-center">
-          <div className="animate-fade-in-up mb-6">
+          {/* <div className="animate-fade-in-up mb-6">
             <span className="inline-block rounded-full bg-[hsl(var(--kinetic-wine))]/10 px-4 py-1.5 text-sm font-medium text-[hsl(var(--kinetic-wine))]">
               Referral Routing Feature
             </span>
-          </div>
+          </div> */}
           <h1 className="animate-fade-in-up animation-delay-200 mb-6 text-balance text-5xl font-semibold leading-[1.1] tracking-tight text-[hsl(var(--foreground))] sm:text-6xl lg:text-7xl">
             Connect care,{" "}
             <span className="italic text-[hsl(var(--kinetic-wine))]">

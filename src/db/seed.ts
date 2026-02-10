@@ -1,33 +1,34 @@
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
-import { eq } from "drizzle-orm";
-import { db } from "./index";
-import {
-  physiotherapists,
-  patients,
-  gps,
-  episodes,
-  visits,
-  consents,
-  computedSignals,
-  simulatedEligibility,
-  gpPatientNotes,
-  transitionEvents,
-  continuityConsents,
-  continuitySummaries,
-} from "./schema";
-import {
-  physioScenarios,
-  gpScenarios,
-  gpPatientNoteScenarios,
-  transitionScenarios,
-  generatePatientProfiles,
-  generateEpisodeTemplates,
-} from "./seed-scenarios";
-import { generateSummary } from "../lib/continuity/generate-summary";
-
+// Dynamic imports so env vars are loaded before db client is created
 async function seed() {
+  const { eq } = await import("drizzle-orm");
+  const { db } = await import("./index");
+  const {
+    physiotherapists,
+    patients,
+    gps,
+    episodes,
+    visits,
+    consents,
+    computedSignals,
+    simulatedEligibility,
+    gpPatientNotes,
+    transitionEvents,
+    continuityConsents,
+    continuitySummaries,
+  } = await import("./schema");
+  const {
+    physioScenarios,
+    gpScenarios,
+    gpPatientNoteScenarios,
+    transitionScenarios,
+    generatePatientProfiles,
+    generateEpisodeTemplates,
+  } = await import("./seed-scenarios");
+  const { generateSummary } = await import("../lib/continuity/generate-summary");
+
   const dbUrl = process.env.TURSO_DATABASE_URL ?? "";
   const isLocalDb =
     !dbUrl ||
@@ -47,7 +48,7 @@ async function seed() {
     process.exit(1);
   }
 
-  console.log("🌱 Starting seed...");
+  console.log(`🌱 Starting seed... (${isLocalDb ? "local" : "remote"}: ${dbUrl || "file:local.db"})`);
 
   // Clear existing data (order matters for foreign keys)
   console.log("Clearing existing data...");
@@ -168,6 +169,16 @@ async function seed() {
             )
           : null;
 
+      // Simulate inbound transfers for strong patient preference profiles
+      // ~30% of episodes are "patients who came from another physio"
+      // Self-reference earlier episodes to avoid FK ordering issues
+      const hasInboundTransfer =
+        physioScenario.expectedSignalProfile.patientPreference === "strong" &&
+        i % 3 === 0 && i > 0;
+      const priorPhysioEpisodeId = hasInboundTransfer
+        ? `episode-${physioScenario.id}-${i - 1}` // Reference own earlier episode as prior care
+        : null;
+
       // Insert episode
       await db.insert(episodes).values({
         id: episodeId,
@@ -179,7 +190,7 @@ async function seed() {
         startedAt,
         dischargedAt,
         isGpReferred: template.isGpReferred,
-        priorPhysioEpisodeId: null,
+        priorPhysioEpisodeId,
       });
       totalEpisodes++;
 

@@ -34,7 +34,7 @@ export const physioScenarios: PhysioScenario[] = [
     expectedSignalProfile: {
       outcomeTrajectory: "strong",
       clinicalDecision: "strong",
-      patientPreference: "moderate",
+      patientPreference: "strong",
     },
   },
   {
@@ -141,6 +141,12 @@ export const gpScenarios: GPScenario[] = [
     practiceName: "Stratford Health Partnership",
     region: "East Melbourne",
   },
+  {
+    id: "gp-david",
+    name: "David Nguyen",
+    practiceName: "Harbour Health Medical",
+    region: "North Sydney",
+  },
 ];
 
 export interface GPPatientNoteScenario {
@@ -204,6 +210,21 @@ export const gpPatientNoteScenarios: GPPatientNoteScenario[] = [
     gpId: "gp-emma",
     patientId: "patient-11",
     notes: "Sciatica symptoms, L5 distribution. MRI pending but conservative management appropriate. Physio for McKenzie assessment and pain management.",
+  },
+  {
+    gpId: "gp-david",
+    patientId: "patient-4",
+    notes: "Wrist pain following fall onto outstretched hand. X-ray negative for fracture. Suspected scaphoid bone bruising. Physiotherapy for wrist rehabilitation and grip strengthening.",
+  },
+  {
+    gpId: "gp-david",
+    patientId: "patient-8",
+    notes: "Thoracic spine stiffness and postural pain. Sedentary occupation. Referral for manual therapy and postural correction program.",
+  },
+  {
+    gpId: "gp-david",
+    patientId: "patient-12",
+    notes: "Groin strain from running. Patient training for half marathon. Needs physio assessment for return to sport timeline and strengthening.",
   },
 ];
 
@@ -414,11 +435,13 @@ export function generateEpisodeTemplates(
 
     // Generate pain progression
     const painProgression: number[] = [];
-    let currentPain = 6 + Math.floor(random() * 3); // Start 6-8
+    let currentPain = profile.outcomeTrajectory === "strong"
+      ? 7 + Math.floor(random() * 2) // Start 7-8 for strong (higher start = bigger reduction ratio)
+      : 6 + Math.floor(random() * 3); // Start 6-8 for others
     for (let v = 0; v < visitCount; v++) {
       painProgression.push(currentPain);
       if (profile.outcomeTrajectory === "strong") {
-        currentPain = Math.max(0, currentPain - 1 - Math.floor(random() * 2));
+        currentPain = Math.max(0, currentPain - 1 - Math.floor(random() * 3));
       } else if (profile.outcomeTrajectory === "moderate") {
         currentPain = Math.max(1, currentPain - Math.floor(random() * 2));
       } else if (profile.outcomeTrajectory === "emerging") {
@@ -434,11 +457,13 @@ export function generateEpisodeTemplates(
 
     // Generate function progression
     const functionProgression: number[] = [];
-    let currentFunction = 40 + Math.floor(random() * 20); // Start 40-60
+    let currentFunction = profile.outcomeTrajectory === "strong"
+      ? 35 + Math.floor(random() * 15) // Start 35-50 for strong (lower start = bigger improvement ratio)
+      : 40 + Math.floor(random() * 20); // Start 40-60 for others
     for (let v = 0; v < visitCount; v++) {
       functionProgression.push(currentFunction);
       if (profile.outcomeTrajectory === "strong") {
-        currentFunction = Math.min(95, currentFunction + 5 + Math.floor(random() * 5));
+        currentFunction = Math.min(98, currentFunction + 7 + Math.floor(random() * 6));
       } else if (profile.outcomeTrajectory === "moderate") {
         currentFunction = Math.min(85, currentFunction + 3 + Math.floor(random() * 4));
       } else if (profile.outcomeTrajectory === "emerging") {
@@ -454,8 +479,8 @@ export function generateEpisodeTemplates(
 
     // Escalation visits (good decision-making = earlier escalations when needed)
     const escalationVisits: number[] = [];
-    if (profile.clinicalDecision === "strong" && random() > 0.7) {
-      escalationVisits.push(2 + Math.floor(random() * 2)); // Early escalation
+    if (profile.clinicalDecision === "strong" && random() > 0.4) {
+      escalationVisits.push(2 + Math.floor(random() * 2)); // Early escalation (more frequent for strong)
     } else if (profile.clinicalDecision === "mixed" && random() > 0.8) {
       escalationVisits.push(5 + Math.floor(random() * 3)); // Late escalation
     }

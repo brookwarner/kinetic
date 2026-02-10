@@ -131,12 +131,12 @@ Located in `/src/lib/signals/`:
 Each signal returns 0-1 value with confidence score. UI displays directional indicators ("Positive Trend", "Emerging Pattern", "Building Data") instead of numeric scores.
 
 **Signal Display Logic** (`SignalCard` component):
-- **Positive Trend**: value ≥70 AND confidence ≠ low → Green icons, "Positive Trend" text
-- **Emerging Pattern**: 50 ≤ value < 70 AND confidence ≠ low → Amber icons, "Emerging Pattern" text
-- **Building Data**: confidence = low → Amber icons, "Building Data" text
-- **Needs Attention**: value < 50 AND confidence ≠ low → Slate icons, "Needs Attention" text
+- **Positive Trend**: value ≥70 AND confidence ≠ low → Green (TrendingUp icon), "Positive Trend" text
+- **Emerging Pattern**: 50 ≤ value < 70 AND confidence ≠ low → Amber (Minus icon), "Emerging Pattern" text
+- **Building Data**: confidence = low → Amber (Minus icon), "Building Data" text
+- **Needs Attention**: value < 50 AND confidence ≠ low → Slate (TrendingDown icon), "Needs Attention" text
 
-Display hierarchy: Large colored quality indicator text (3xl font) is dominant, confidence level and episode count are secondary context (small muted text).
+Display hierarchy: Large colored quality text (3xl, dominant) > benchmark percentile pill (small, secondary) > confidence/episode count (small, muted)
 
 **Benchmark Integration** (`SignalCard` with benchmarkSummary prop):
 - Percentile pill badge displays below quality indicator (secondary context)
@@ -168,9 +168,9 @@ Hardcoded benchmark data simulating AI-analyzed percentile comparisons without r
 - `getTopBenchmarkSignal(physioId)` - Returns highest-performing signal
 
 **Display Components**:
-- `BenchmarkDetailPanel` - Accordion-style category breakdown with percentile bars, median markers (50th), signal-level details, AI insights, methodology footer
-- `SignalCard` with `benchmarkSummary` - Small percentile pill integrated into signal cards
-- `PhysioResultCard` with `benchmarkPercentile` - GP-facing summary showing overall percentile and top signal
+- `BenchmarkDetailPanel` - Accordion-style category breakdown with expand/collapse state, percentile bars (wine for physio view, sage for GP view), median markers (50th), signal-level details, AI insights, methodology footer with Brain icon
+- `SignalCard` with `benchmarkSummary` - Small percentile pill badge integrated below quality indicator (secondary context), color-coded by status (green/slate/amber)
+- `PhysioResultCard` with `benchmarkPercentile` - GP-facing summary showing overall percentile with horizontal bar graph, median marker, and top signal name/percentile
 
 ### Eligibility Simulation
 
@@ -223,14 +223,21 @@ npm run db:studio   # Open Drizzle Studio
 npm run seed        # Seed database with demo scenarios (loads env files via @next/env, connects to configured DB)
 ```
 
-Seed creates 5 physio personas, 3 GPs, 30 patients, 59 episodes, 494 visits, and 32 consents.
+Seed creates 5 physio personas, 4 GPs, 30 patients, 59 episodes, 494 visits, and 32 consents.
 
 **Seed Script Behavior**: The seed script (`/src/db/seed.ts`) loads environment variables using `@next/env` to match Next.js behavior:
+- Uses `loadEnvConfig(process.cwd())` from `@next/env` **before any database imports** to ensure env vars are available when the DB client is initialized
+- **All imports are dynamic** (`await import()`) inside the main `seed()` function to prevent ES module import hoisting from bypassing env loading
+- Startup log shows which database is being seeded: `🌱 Starting seed... (local/remote: <url>)`
 - Automatically loads `.env`, `.env.local`, and other Next.js env files before connecting to the database
 - Treats database as local when `TURSO_DATABASE_URL` is unset, empty, or starts with `file:`, `http://localhost`, or `https://localhost`
 - Requires `ALLOW_REMOTE_SEED=true` environment variable to seed remote/production databases
 - Prevents accidental data overwrites on cloud databases
 - Running `npm run seed` connects to whatever database is configured in your env files (local or remote)
+- Clears data in FK order: `continuitySummaries` → `continuityConsents` → `transitionEvents` → other tables
+- Uses `db.query.episodes.findFirst()` Drizzle query API alongside `db.select()` for episode lookups
+- Episode IDs follow deterministic pattern: `episode-{physioId}-{index}`
+- Simulates inbound transfers for strong patient preference profiles: ~30% of episodes (every 3rd after first) get `priorPhysioEpisodeId` set to self-reference earlier episodes, boosting patient preference signal's inbound transfer rate
 
 ## Key Features
 
@@ -306,18 +313,22 @@ This replaces the previous approach of a sticky top header with separate preview
 When a physiotherapist is not opted in, visiting `/physio/[physioId]/opt-in` shows a 4-step wizard (`OptInWizard`):
 
 1. **Consent Step** - Lists consented episodes that will contribute to signals (fetched from `/api/physio/[physioId]/consented-episodes`)
-2. **Analysing Step** - Animated progress bar with time-based progression (9 seconds total, 100ms update intervals, 4 phases):
-   - 0-2.5s (0-28%): "Analyzing clinical notes from X consented episodes..."
-   - 2.5-5s (28-53%): "Computing outcome trajectories and clinical indicators..."
-   - 5-7s (53-77%): "Matching quality signals to regional benchmarks..."
-   - 7-9s (77-99%): "Comparing against industry and peer benchmarks..."
-   - During this step, `toggleOptIn` is called to opt in with preview mode enabled, then `recomputeSignals` runs
-   - URL parameter `wizard=true` is added automatically to prevent premature page switching during animation
-   - Minimum 9-second animation ensures smooth UX, progress completes at 100% before transitioning after +800ms delay
-3. **Results Step** - Displays computed signals with benchmark percentiles and eligibility data (fetched from `/api/physio/[physioId]/signals` and `/eligibility`)
+2. **Analysing Step** - Time-based animated progress (NOT API-dependent, 9 seconds total, 100ms update intervals):
+   - Phase 1 (0-2.5s, 0-28%): "Analyzing clinical notes from X consented episodes..."
+   - Phase 2 (2.5-5s, 28-53%): "Computing outcome trajectories and clinical indicators..."
+   - Phase 3 (5-7s, 53-77%): "Matching quality signals to regional benchmarks..."
+   - Phase 4 (7-9s, 77-99%): "Comparing against industry and peer benchmarks..."
+   - During animation: `toggleOptIn` called to opt in with preview mode, then `recomputeSignals` runs
+   - Parallel async data fetching (signals + eligibility) via `Promise.all()` doesn't block animation
+   - URL parameter `wizard=true` added via `window.history.replaceState()` to prevent premature page switching
+   - Animation completes at 100%, waits for data to be ready, then transitions after +800ms delay
+3. **Results Step** - Displays computed signals with benchmark percentiles and eligibility data (imports `getBenchmarkSignals` for display)
 4. **Go-Live Step** - Decision point to exit preview mode (calls `disablePreviewMode` and removes wizard parameter, redirects to dashboard) or continue exploring
 
-**Wizard State Management**: The wizard automatically adds `?wizard=true` URL parameter using `window.history.replaceState()` when starting the analysis step. This prevents the page from switching to `SettingsView` mid-flow when `toggleOptIn` completes during the analysis animation.
+**Wizard Animation Timing Pattern**: Both opt-in and referral wizards use time-based progress animations independent of API response times:
+- Opt-in: 9 seconds, 4 phases (notes → signals → regional benchmarks → industry benchmarks)
+- Referral: 6 seconds, 4 phases (patient review → physio analysis → benchmark checking → quality matching)
+- Both use 100ms update intervals for smooth animation, parallel async data fetching, and post-animation transition delays
 
 When already opted in (and no wizard parameter), the same route shows `SettingsView` with:
 - Current status display (opted in, preview mode state)
@@ -359,16 +370,16 @@ Preview mode status is integrated into the `PageHeader` component (not a separat
   - "Find Physiotherapists" button disabled until patient selected
   - Cancel button returns to GP dashboard
 - **Step 2 - Searching**:
-  - 6-second time-based animated progress (100ms update intervals, 4 phases)
+  - Time-based animated progress (NOT API-dependent, 6 seconds total, 100ms update intervals)
   - Four phases with stage text updates:
-    - 0-1.5s (0-25%): "Reviewing patient history..."
-    - 1.5-3s (25-50%): "Analyzing local physiotherapists..."
-    - 3-4.5s (50-75%): "Checking quality benchmarks..."
-    - 4.5-6s (75-99%): "Matching quality to patient needs..."
+    - Phase 1 (0-1.5s, 0-25%): "Reviewing patient history..."
+    - Phase 2 (1.5-3s, 25-50%): "Analyzing local physiotherapists..."
+    - Phase 3 (3-4.5s, 50-75%): "Checking quality benchmarks..."
+    - Phase 4 (4.5-6s, 75-99%): "Matching quality to patient needs..."
   - Progress bar with percentage display
   - Stage indicator icons (FileText → Loader2 → CheckCircle2 as phases complete)
-  - Parallel async fetch to `/api/gp/${gpId}/find-physios` (POST with patientRegion)
-  - Transitions to results at 6s + 600ms delay regardless of API status
+  - Parallel async fetch to `/api/gp/${gpId}/find-physios` (POST with patientRegion) using `searchPromise` pattern
+  - Animation completes at 6s regardless of API status, then transitions to results after +600ms delay
 - **Step 3 - Results**:
   - Grid of `PhysioResultCard` components showing top eligible matches
   - Cards display: name, clinic, region badge, capacity status, specialty tags, signal confidence dots, benchmark percentile summary
@@ -437,8 +448,8 @@ All database queries use Drizzle ORM with full TypeScript inference. Schema type
 Use shadcn/ui components from `/src/components/ui/`. Custom components follow Tailwind utility-first patterns with HSL color variables.
 
 **Client-Side Interactivity Pattern**: Pages requiring state management (forms, animations, dialogs) use `"use client"` directive:
-- Opt-in wizard (`opt-in-wizard.tsx`) - 4-step flow with progress indicator, animated analysis (9-second time-based animation with 100ms intervals, 4 phases including benchmark matching), URL parameter manipulation via `window.history.replaceState()`, parallel data fetching with `Promise.all()`, `AlertDialog` for go-live confirmation, imports `getBenchmarkSignals` for results display
-- Referral wizard (`new-referral-wizard.tsx`) - 3-step flow (patient → searching → results), state management with `useState` for step progression and form data, 6-second time-based search animation (100ms intervals, 4 phases: 0-1.5s patient review, 1.5-3s physio analysis, 3-4.5s benchmark checking, 4.5-6s quality matching), parallel physio search using async/await pattern with `searchPromise`, progress indicator with step completion tracking, confirmation dialog before referral creation with demo-mode simulation (1s delay, no database write), imports `getTopBenchmarkSignal` for card display
+- Opt-in wizard (`opt-in-wizard.tsx`) - 4-step flow with time-based progress animation (9 seconds, 100ms intervals, 4 phases), URL parameter manipulation via `window.history.replaceState()`, parallel data fetching with `Promise.all()`, `AlertDialog` for go-live confirmation, imports `getBenchmarkSignals` for results display
+- Referral wizard (`new-referral-wizard.tsx`) - 3-step flow with time-based search animation (6 seconds, 100ms intervals, 4 phases), parallel physio search using async/await pattern with `searchPromise`, progress indicator with step completion tracking, confirmation dialog before referral creation with demo-mode simulation (1s delay, no database write), imports `getTopBenchmarkSignal` for card display
 - Benchmark detail panel (`benchmark-detail-panel.tsx`) - Accordion component for category-level benchmark breakdown with expand/collapse state, percentile bars, status badges, AI insights
 - Settings view (`settings-view.tsx`) - Status management with confirmation dialogs
 - Opt-in banner (`opt-in-banner.tsx`) - FAQ accordion and CTA interactions
@@ -456,7 +467,7 @@ Use shadcn/ui components from `/src/components/ui/`. Custom components follow Ta
 - Shield icon for all-or-nothing rule explanations
 - Users/User icon for patient consent sections and patient cards
 - TrendingUp/TrendingDown/Minus icons for signal quality indicators
-- Sparkles icon for opportunity/upsell messaging
+- Sparkles icon for opportunity/upsell messaging and AI-powered features
 - CheckCircle2 icon for success states and benefits lists
 - FileText, Activity icons for dashboard stat cards and wizard steps
 - Inbox icon for empty states
@@ -472,9 +483,9 @@ Use shadcn/ui components from `/src/components/ui/`. Custom components follow Ta
 - LayoutDashboard, Settings icons for sidebar navigation items
 - RotateCcw icon for development reset functionality
 - BarChart3 icon for benchmark indicators and performance metrics
-- Brain icon for AI methodology explanations in benchmark panel
-- ChevronDown icon for accordion expand/collapse in benchmark panel
-- BookOpen, Route, Heart, Network, ShieldCheck icons for benchmark category identification
+- Brain icon for AI methodology explanations in BenchmarkDetailPanel
+- ChevronDown icon for accordion expand/collapse in BenchmarkDetailPanel
+- BookOpen, Route, Heart, Network, ShieldCheck, Activity icons for benchmark category identification
 
 ## Color System
 
@@ -538,11 +549,23 @@ Custom color palette defined in `globals.css` using HSL variables:
 
 5 physiotherapist personas demonstrate different states:
 
-1. **Dr. Sarah Chen** (physio-sarah) - Strong signals, preview mode active, high eligibility
-2. **Dr. James Park** (physio-james) - Not opted in, demonstrates opportunity cost
-3. **Dr. Maya Patel** (physio-maya) - Early adopter, preview mode, building confidence
-4. **Dr. Tom Hughes** (physio-tom) - Mixed signals, preview mode, system honesty
-5. **Dr. Aisha Rahman** (physio-aisha) - Opted out, demonstrates reversibility
+1. **Dr. Sarah Chen** (physio-sarah) - Strong signals across all three categories (outcome/clinical/patient preference), not opted in initially, 15 episodes, North Sydney region
+2. **Dr. James Park** (physio-james) - Strong outcome + moderate clinical/patient preference, not opted in, demonstrates opportunity cost, 12 episodes, North Sydney region
+3. **Dr. Maya Patel** (physio-maya) - Emerging signals across all categories, not opted in, building confidence, 8 episodes, South Sydney region
+4. **Dr. Tom Hughes** (physio-tom) - Mixed outcome + moderate clinical + strong patient preference, not opted in, demonstrates system honesty, 14 episodes, East Melbourne region
+5. **Dr. Aisha Rahman** (physio-aisha) - Moderate signals across all categories, not opted in, demonstrates reversibility, 10 episodes, West Perth region
+
+4 GP personas for regional referral testing:
+
+1. **Dr. Alice Thompson** (gp-alice) - Highgate Medical Centre, North Sydney (5 GP patient notes)
+2. **Dr. Robert Osei** (gp-robert) - Clapham Common Practice, South Sydney (3 GP patient notes)
+3. **Dr. Emma Wilson** (gp-emma) - Stratford Health Partnership, East Melbourne (3 GP patient notes)
+4. **Dr. David Nguyen** (gp-david) - Harbour Health Medical, North Sydney (3 GP patient notes)
+
+**Signal Profile Boosting** (seed data generation rules):
+- **Strong outcome trajectory**: Pain starts 7-8/10 (drops 1-3 per visit), function starts 35-50/100 (rises 7-12 per visit, caps at 98)
+- **Strong clinical decision**: 60% escalation frequency (random > 0.4)
+- **Strong patient preference**: Inbound transfer simulation (every 3rd episode after first gets `priorPhysioEpisodeId`)
 
 ## Important Files
 
@@ -568,17 +591,24 @@ Custom color palette defined in `globals.css` using HSL variables:
 
 **Key Components:**
 - `/src/components/physio/page-header.tsx` - Unified physio page header
-- `/src/components/physio/signal-card.tsx` - Signal display with benchmark percentile integration
-- `/src/components/physio/benchmark-detail-panel.tsx` - Accordion-style benchmark category breakdown
+- `/src/components/physio/signal-card.tsx` - Signal display with benchmark percentile integration (pill badge below quality indicator)
+- `/src/components/physio/benchmark-detail-panel.tsx` - Accordion-style benchmark category breakdown with iconMap and category colors
 - `/src/components/gp/gp-sidebar.tsx` - GP navigation with sage theme
-- `/src/components/gp/physio-result-card.tsx` - Physio match card with benchmark performance section
-- `/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx` - 3-step referral flow with benchmark checking
+- `/src/components/gp/physio-result-card.tsx` - Physio match card with benchmark performance section (percentile bar + median marker)
+- `/src/app/gp/[gpId]/referral/new/new-referral-wizard.tsx` - 3-step referral flow with 6-second time-based animation
+- `/src/app/physio/[physioId]/opt-in/opt-in-wizard.tsx` - 4-step opt-in flow with 9-second time-based animation
 - `/src/components/patient/continuity-consent-form.tsx` - Care transition consent
+
+**Utility Scripts:**
+- `/scripts/transcribe-with-diarization.py` - Python utility for audio transcription with speaker diarization using AssemblyAI API (requires `ASSEMBLYAI_API_KEY` env var, uses universal-3-pro/universal-2 models, outputs full transcript + speaker-labeled transcript with timestamps/confidence)
 
 **Documentation:**
 - `/README.md` - User-facing documentation
 - `/IMPLEMENTATION.md` - Technical implementation summary
 - `/CLAUDE.md` - This file (project instructions for AI coding assistants)
+
+**Research Materials:**
+- `/transcript.md` - 45-minute interview transcript with two physiotherapists (Holly and Claire) discussing referral routing and care continuity workflows, includes speaker diarization from AssemblyAI, covers patient acquisition pathways, patient loyalty dynamics, cross-clinic handoffs, note-sharing practices, and system design considerations
 
 ## Development Workflow
 

@@ -580,7 +580,7 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                   </div>
                 </div>
                 <p className="mt-4 text-sm text-slate-600">
-                  You're ready to appear in {eligibility.eligibleReferralSets} GP practice{eligibility.eligibleReferralSets !== 1 ? "s" : ""} based on your North London region and strong quality signals
+                  You're ready to appear in {eligibility.eligibleReferralSets} GP practice{eligibility.eligibleReferralSets !== 1 ? "s" : ""} based on your region and strong quality signals
                 </p>
               </CardContent>
             </Card>
@@ -777,7 +777,7 @@ export function OptInWizard({ physioId }: OptInWizardProps) {
                   </p>
                   <p className="text-sm text-slate-600">
                     {eligibility && eligibility.eligibleReferralSets > 0
-                      ? `You'll be visible to ${eligibility.eligibleReferralSets} GP practice${eligibility.eligibleReferralSets !== 1 ? "s" : ""} in North London when they refer patients`
+                      ? `You'll be visible to ${eligibility.eligibleReferralSets} GP practice${eligibility.eligibleReferralSets !== 1 ? "s" : ""} in your region when they refer patients`
                       : "You'll appear in referral sets when you meet eligibility criteria"}
                   </p>
                 </div>
