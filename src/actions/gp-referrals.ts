@@ -60,6 +60,7 @@ export async function createGpReferral({
     }
 
     revalidatePath(`/physio/${destinationPhysioId}/episodes`);
+    revalidatePath(`/physio/${destinationPhysioId}/eligibility`);
     revalidatePath(`/gp/${gpId}`);
 
     return { success: true, episodeId: newEpisodeId };

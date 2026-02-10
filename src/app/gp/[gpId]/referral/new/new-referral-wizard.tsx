@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { getBenchmarkSignals, getTopBenchmarkSignal } from "@/lib/signals/benchmark-data";
 import { cn } from "@/lib/utils";
+import { createGpReferral } from "@/actions/gp-referrals";
 
 interface Patient {
   id: string;
@@ -86,6 +87,7 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedPhysio, setSelectedPhysio] = useState<PhysioResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Load patients on mount
   useEffect(() => {
@@ -181,13 +183,27 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
   };
 
   const handleConfirmReferral = async () => {
+    if (!selectedPatient || !selectedPhysio) return;
+
     setIsSubmitting(true);
+    setSubmissionError(null);
     setShowConfirmDialog(false);
 
-    // Simulate referral submission (demo only - no actual database record)
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const firstLine = clinicalNotes.trim().split("\n")[0]?.trim();
+    const condition = firstLine || "General physiotherapy referral";
+    const result = await createGpReferral({
+      gpId,
+      patientId: selectedPatient.id,
+      destinationPhysioId: selectedPhysio.id,
+      condition,
+    });
 
-    // Navigate back to dashboard with success
+    if (!result.success) {
+      setSubmissionError(result.error ?? "Failed to create referral");
+      setIsSubmitting(false);
+      return;
+    }
+
     router.push(`/gp/${gpId}?referral=success`);
   };
 
@@ -558,6 +574,14 @@ export function NewReferralWizard({ gpId, gpRegion }: NewReferralWizardProps) {
               </p>
             </CardContent>
           </Card>
+
+          {submissionError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <p className="text-sm text-red-800">{submissionError}</p>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex justify-between">
             <Button

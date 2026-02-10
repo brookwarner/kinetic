@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { physiotherapists } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { episodes, gps, patients, physiotherapists } from "@/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import {
   Card,
@@ -15,7 +15,6 @@ import Link from "next/link";
 import {
   CheckCircle2,
   Circle,
-  TrendingUp,
   Inbox,
   Sparkles,
   ArrowRight,
@@ -23,6 +22,7 @@ import {
 import { PageHeader } from "@/components/physio/page-header";
 import { EligibilityMeter } from "@/components/physio/eligibility-meter";
 import { simulateEligibility } from "@/lib/eligibility/simulate";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -45,9 +45,23 @@ export default async function ReferralsPage({ params }: Props) {
   // Simulate eligibility for the "What's in it for me?" section
   const eligibility = await simulateEligibility(physioId);
 
-  // TODO: In production, fetch actual GP referrals from database
-  // For MVP demo, show empty state
-  const referrals: any[] = [];
+  const referrals = await db
+    .select({
+      episodeId: episodes.id,
+      condition: episodes.condition,
+      status: episodes.status,
+      startedAt: episodes.startedAt,
+      patientName: patients.name,
+      gpName: gps.name,
+      gpPracticeName: gps.practiceName,
+    })
+    .from(episodes)
+    .leftJoin(patients, eq(episodes.patientId, patients.id))
+    .leftJoin(gps, eq(episodes.referringGpId, gps.id))
+    .where(
+      and(eq(episodes.physioId, physioId), eq(episodes.isGpReferred, true))
+    )
+    .orderBy(desc(episodes.startedAt));
 
   return (
     <div className="px-6 py-8">
@@ -236,10 +250,44 @@ export default async function ReferralsPage({ params }: Props) {
         </>
       )}
 
-      {/* TODO: Actual referrals list when they exist */}
       {physio.optedIn && referrals.length > 0 && (
         <div className="space-y-4">
-          {/* Referral cards would go here */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Incoming Referrals</CardTitle>
+              <CardDescription>
+                {referrals.length} GP referral{referrals.length !== 1 ? "s" : ""} received
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {referrals.map((referral) => (
+                <Link
+                  key={referral.episodeId}
+                  href={`/physio/${physioId}/episodes/${referral.episodeId}`}
+                  className="block rounded-lg border p-4 transition-colors hover:bg-slate-50"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-900">{referral.condition}</p>
+                      <p className="text-sm text-slate-600">
+                        Patient: {referral.patientName ?? "Unknown Patient"}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Referred by: {referral.gpName ?? "Unknown GP"}
+                        {referral.gpPracticeName ? ` (${referral.gpPracticeName})` : ""}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Received {formatDate(referral.startedAt)}
+                      </p>
+                    </div>
+                    <Badge variant={referral.status === "active" ? "default" : "outline"}>
+                      {referral.status}
+                    </Badge>
+                  </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
